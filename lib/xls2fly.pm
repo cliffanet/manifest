@@ -25,6 +25,10 @@ sub err {
     return $error;
 }
 
+####################################################
+##
+##  Базовый парсинг исходного файла
+##
 sub parse {
     shift() if $_[0] && (($_[0] eq __PACKAGE__) || (ref($_[0]) eq __PACKAGE__));
     my $log = log_prefix('xls2fly->parse()');
@@ -265,7 +269,7 @@ sub parse {
             if ($row[0] && $row[1] && ($row[0] eq '№') && ($row[1] eq 'ФИО')) {
                 @head = map {
                         my $val = $_;
-                        my ($f) = grep { $val =~ /$_->{regexp}/i } @::PeopleColumn;
+                        my ($f) = grep { $val =~ /$_->{regexp}/i } @{ c('PeopleColumn') || [] };
                         $f ? $f->{code} : $val;
                     } @row;
                 next;
@@ -302,6 +306,339 @@ sub parse {
         @_ ?
             $r{shift()} :
             ();
+}
+
+
+
+####################################################
+##
+##  Формирование дополнительных полей на основании существующих данных
+##
+sub adding_data {
+    shift() if $_[0] && (($_[0] eq __PACKAGE__) || (ref($_[0]) eq __PACKAGE__));
+    my $log = log_prefix('xls2fly->adding_data()');
+    
+    #my $flyempty = 0;
+    #my $prevsheet = '';
+    foreach my $fly (@_) {
+        my ($flySheet) = grep { $_->{id} eq $fly->{sheetid} } @{ c('flySheet') || [] };
+        
+        $fly->{meta} = '-' if $fly->{name} =~ /подъем/;
+        
+        #
+        # Персоны
+        #
+        foreach my $pers ( @{ $fly->{pers}||=[] } ) {
+            # Платность
+            $pers->{payed} = 1
+                if $pers->{code} && (
+                        ($pers->{code} =~ /^([Дд][Оо][Лл][Гг]\s+)?\d+$/) ||
+                        ($pers->{code} =~ /безнал/i) ||
+                        ($pers->{code} =~ /сс/i) ||
+                        ($pers->{code} =~ /cc/i) ||
+                        ($pers->{code} =~ /^[Мм][Пп][Ии]/i) ||
+                        ($pers->{code} =~ /^[Оо][Пп][Ее][Рр]/i)
+                    );
+        }
+        
+        #
+        # Новый способ группировки
+        #
+        _pers_group(@{ $fly->{pers} });
+        
+        #
+        # Тип конкретного посадочного места (после группировки, чтобы учитывать ее)
+        #
+        foreach my $pers ( @{ $fly->{pers} } ) {
+            foreach my $t (@{ c('persType') || [] }) {
+                my @regexp = grep { /^regexp\d*_[a-z\d\_]+/i } keys %$t;
+                # фильтр по полям, их м.б. несколько для одной персоны с условием "и"
+                my $ok = 1;
+                foreach my $r (@regexp) {
+                    if ($r =~ /regexp_fly_([a-z\d]+)$/i) {
+                        my $f = $1;
+                        my $patt = $t->{$r};
+                        next if $f && defined($fly->{$f}) && ($fly->{$f} =~ /$patt/);
+                    }
+                    elsif ($r =~ /regexp_([a-z\d]+)$/i) {
+                        my $f = $1;
+                        my $patt = $t->{$r};
+                        next if $f && defined($pers->{$f}) && ($pers->{$f} =~ /$patt/);
+                    }
+                    $ok = undef;
+                    last;
+                }
+                $ok || next;
+                
+                next if $t->{ingroup} && (!$pers->{group} || !$pers->{grpind} || ($t->{ingroup} != $pers->{grpind}));
+                
+                $pers->{type} = $t->{id};
+                last;
+            }
+            
+            delete $pers->{grpind};
+        }
+        
+        # Отфильтровываем пустые места:
+        @{ $fly->{pers} } =
+            grep {
+                ($_->{name} ne '') || ($_->{group}) ||
+                ($_->{visota} && $_->{parashute})
+            }
+            @{ $fly->{pers} };
+    }
+    
+    1;
+}
+
+####################################################
+##
+##  Группировка персон во взлёте
+##
+sub _pers_group {
+    shift() if $_[0] && (($_[0] eq __PACKAGE__) || (ref($_[0]) eq __PACKAGE__));
+    my $log = log_prefix('xls2fly->_pers_group_old()');
+    
+    my @plist = @_;
+    
+    my @group = ();
+    my %group = ();
+    #
+    while (my $pers = shift @plist) {
+        #
+        push @group,
+            map { {
+                %$_,
+                flist => [@{$_->{list}}], # Список фильтров, будем отсюда вырезать строки
+                plist => [],        # Список вошедших персон
+            } }
+            grep { ref($_->{list}) eq 'ARRAY' }
+            @{ c('persGroup') || [] };
+        # Отбираем список фильтров, удовлетворяющих текущей персоне
+        @group =
+            grep {
+                my $ret = 0;
+                my $g = $_;
+                while (my $f = shift @{ $g->{flist} }) {
+                    if ($f->{any}) {
+                        $ret = 1;
+                        push @{ $g->{plist} }, $pers;
+                    }
+                    else {
+                        my @regexp = grep { /^regexp\d*_[a-z\d]+/i } keys %$f;
+                        if (@regexp) {
+                            $ret = 1;
+                            foreach my $r (@regexp) {
+                                my $fld = $r =~ /_([a-z\d\_]+)$/i ? $1 : '';
+                                my $patt = $f->{$r};
+                                # Проверка полей
+                                next if $fld && defined($pers->{$fld}) && ($pers->{$fld} =~ /$patt/);
+                                
+                                $ret = 0;
+                                last;
+                            }
+                        }
+                        if ($ret) {
+                            push @{ $g->{plist} }, $pers;
+                        }
+                    }
+                    
+                    if (!$ret && $f->{optional}) {
+                        # Фильтр не совпал, но он не обязательный
+                        if (@{ $g->{flist} }) {
+                            next; # Поэтому, если еще остались другие требуемые персоны-фильтры, то проверяем их
+                        }
+                        else {
+                            # А если не осталось, тогда группа заполнена всем необходимым и ее надо обработать
+                            $ret = 1;
+                        }
+                    }
+                    last; # А если текущий фильтр совпал или не совпал и он обязательный, прерываем дальнейшую проверку по этому фильтру
+                }
+                
+                $ret;
+            }
+            @group;
+        
+        # Смотрим первую группу, которая удовлетворяет всем параметрам
+        my $islast = @plist ? 0 : 1;
+        my ($g) =
+            grep {
+                my $gr = $_;
+                (@{$gr->{plist}} > 1) &&                 # Проверяем наличие персон в группе
+                !(grep {$_->{group}} @{$gr->{plist}}) && # но не должно быть ни одной, уже участвующей в другой группе
+                (
+                    !@{$gr->{flist}} ||                  # и не осталось элементов фильтра
+                                                        # или это крайняя персона и не осталось обязательных элементов фильтра
+                    ($islast && !(grep {!$_->{optional}} @{$gr->{flist}}))
+                )
+            }
+            @group;
+        if ($g) {
+            # Если есть совпадение, присваиваем группу
+            my $groupid;
+            foreach my $n (1..99) {
+                # подбираем groupid, свободный в этом взлете
+                $groupid = sprintf "%s-%02d", $g->{id}, $n;
+                last if !$group{$groupid};
+            }
+            $group{$groupid} = 1;
+            my $n = 0;
+            # Присваиваем группу всем персонам
+            foreach my $pers1 (@{$g->{plist}}) {
+                $pers1->{group} = $groupid;
+                $pers1->{grpind} = ++$n;
+            }
+        }
+        
+        # Оставляем только группы, где остались фильтры
+        @group = grep { @{$_->{flist}} && @{$_->{plist}} } @group;
+    }
+    
+    1;
+}
+sub _pers_group_old {
+    shift() if $_[0] && (($_[0] eq __PACKAGE__) || (ref($_[0]) eq __PACKAGE__));
+    my $log = log_prefix('xls2fly->_pers_group_old()');
+
+    # Параметры, определяющие текущую группу участников
+    my %group = ();
+    my $group = undef;
+    my $groupid = undef;
+    my $groupfirst = undef;
+    my $ingroup = undef;
+    #
+    foreach my $pers ( @_ ) {
+        foreach my $g (@{ c('persGroup') || [] }) {
+            my @regexp = grep { /^regexp\d*_[a-z\d]+/i } keys %$g;
+            @regexp || next;
+            my $ok = 1;
+            foreach my $r (@regexp) {
+                my $f = $r =~ /_([a-z\d\_]+)$/i ? $1 : '';
+                my $patt = $g->{$r};
+                # Проверка полей
+                next if $f && defined($pers->{$f}) && ($pers->{$f} =~ /$patt/);
+                ## Проверка на правило "no_group"
+                #next if ($f eq 'no_group') && (!$groupid || ($groupid !~ /$patt/));
+                
+                $ok = 0;
+                last;
+            }
+            $ok || next;
+            # Очередная строчка совпадает с первым членом группы
+            $group = $g;
+            $groupfirst = $pers;
+            foreach my $n (1..99) {
+                # подбираем groupid, свободный в этом взлете
+                $groupid = sprintf "%s-%02d", $g->{id}, $n;
+                last if !$group{$groupid};
+            }
+            # Формируем аттрибутов персон, которые должны\могут войти в группу
+            # первым в списке указываем любого - это текущая персона
+            # массив хешей "after" пересобираем, т.к. нам его надо модифицировать
+            $group{$groupid} = [ { any => 1 }, map { {%$_} } @{ $g->{after}||[] } ];
+            $ingroup = 0;
+            last;
+        }
+        if ($group && $groupid && (my $after = $group{$groupid})) {
+            my $attr;
+            foreach my $attr1 (@$after) {
+                if ($attr1->{any}) {
+                    # Первым проверяем аттрибут any
+                    $attr = $attr1;
+                }
+                elsif (my @regexp = grep { /^regexp\d*_[a-z\d]+/i } keys %$attr1) {
+                    # фильтр по полям, их м.б. несколько для одной персоны с условием "и"
+                    $attr = $attr1;
+                    foreach my $r (@regexp) {
+                        my $f = $r =~ /regexp_([a-z\d]+)$/i ? $1 : '';
+                        my $patt = $attr1->{$r};
+                        next if $f && defined($pers->{$f}) && ($pers->{$f} =~ /$patt/);
+                        $attr = undef;
+                        last;
+                    }
+                }
+                last if $attr;
+            }
+            if ($attr) {
+                $ingroup ++;
+                # Убираем из списка исползованный элемент
+                @$after = grep { $_ ne $attr } @$after;
+                if ($groupfirst && ($groupfirst ne $group)) {
+                    # Это не первый элемент
+                    $pers->{payed} = 1
+                        if $groupfirst->{payed};
+                }
+                
+            }
+            else {
+                # Кончились допустимые элементы в группе
+                $group = undef;
+                $groupid = undef;
+                $groupfirst = undef;
+                $ingroup = undef;
+            }
+        }
+        
+        if ($group && $groupid) {
+            $pers->{group} = $groupid;
+            $pers->{grpind} = $ingroup;
+        }
+    }
+    
+    1;
+}
+
+
+####################################################
+##
+##  Сравнение свежезагруженного списка взлетов с предыдущей версией
+##  и вычисление необходимых доп параметров
+##
+sub by_prev {
+    shift() if $_[0] && (($_[0] eq __PACKAGE__) || (ref($_[0]) eq __PACKAGE__));
+    my $log = log_prefix('xls2fly->_pers_group_old()');
+    
+    my $flist = shift() || return;
+    my $fprev = shift() || return;
+    
+    my %fold =
+        map { $_->{flyid} ? ($_->{flyid} => $_) : () }
+        @$fprev;
+    
+    # Парсим новый список
+    my $time = time();
+    foreach my $fly (@$flist) {
+        # Ищем предыдущий вариант этого же взлета
+        # Должен совпадать порядковый номер в списке всех взлетов
+        $fly->{flyid} || next;
+        my $fold = $fold{ $fly->{flyid} };
+        # И так же - название. Смена название принимается за изменение порядка в списке
+        # и тогда найти предыдущий скорее всего не получится
+        if (!$fold || !$fold->{name} || !$fly->{name} || ($fold->{name} ne $fly->{name})) {
+            # При любой из этих проблем помечаем meta как fail
+            $fly->{meta_fail} = 1 if defined($fly->{meta}) && ($fly->{meta} ne '');
+        }
+        
+        # Фисксируем момент изменение "meta"
+        $fly->{meta} = '' if !defined($fly->{meta});
+        my $mprev = defined($fold->{meta}) ? $fold->{meta} : '';
+        if ($fly->{meta} ne $mprev) {
+            # При изменении meta отмечаем это параметрами meta_prev и meta_time
+            $fly->{meta_prev} = $mprev;
+            $fly->{meta_prtm} = $fly->{meta_time} if defined $fly->{meta_time};
+            $fly->{meta_time} = $time;
+        }
+        else {
+            # Если ничего не менялось,
+            # сохраняем параметры meta_prev и meta_time между обновлениями файла
+            foreach my $f (qw/meta_prev meta_prtm meta_time/) {
+                $fly->{$f} = $fold->{$f} if exists $fold->{$f};
+            }
+        }
+    }
+    
+    1;
 }
 
 ####################################################
