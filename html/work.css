@@ -1,0 +1,123 @@
+
+body {
+	font-size: 100%;
+	font-family: Tahoma, Geneva, sans-serif;
+	background: #f0f0f0;
+	margin-top: 0;
+	padding: 0;
+	
+}
+
+tr {
+	height: 13px;
+	font-size: 0.650em;
+	font-weight: 100;
+}
+
+td {
+	padding-left: 3px;
+	padding-right: 3px;
+}
+
+h1{
+	font-size: 0.650em;
+	font-weight: bold;
+	color: #312b2b;
+	text-align: left;
+}
+
+#clear {
+	clear: both;
+}
+
+.refresh {
+	margin-left: 1.8%;
+	font-size: 0.650em;
+	font-weight: 100;
+}
+
+
+
+.ob {
+	/*outline: 1px solid pink;*/
+	margin: 0 auto;
+	max-width: 1600px;
+	min-width: 320px;
+	width: 100%;
+}
+
+.ob2 {
+	margin: 0 auto;
+	/*outline: 1px solid red;*/
+	width: 100%;
+	height: 100%;
+}
+
+.wrapper {
+	width: 19%;
+	margin-left: 1%;
+	float: left;
+	/*outline: 1px solid blue;*/
+}
+
+tr.title {
+	text-align: center;
+	font-weight: bold;
+}
+
+td.number {
+	width: 7%;
+}
+
+td.fio {
+	width: 42%;
+}
+
+td.type {
+	width: 39%;
+}
+
+td.height {
+	width: 12px;
+	/*min-width: 31px;*/
+}
+
+.groupped {
+	background-color: #DADADA;
+}
+
+@media screen and (min-width: 1130px) and (max-width: 1395px) {
+.wrapper {
+	width: 24%;
+	margin-left: 1%;
+	float: left;
+	/*outline: 1px solid blue;*/
+}
+}
+
+@media screen and (min-width: 910px) and (max-width: 1130px) {
+.wrapper {
+	width: 31%;
+	margin-left: 0.5%;
+	float: left;
+	/*outline: 1px solid blue;*/
+}
+}
+
+@media screen and (min-width: 590px) and (max-width: 910px) {
+	.wrapper {
+	width: 49%;
+	margin-left: 0.5%;
+	float: left;
+	/*outline: 1px solid blue;*/
+}
+}
+
+@media screen and (min-width: 0px) and (max-width: 590px) {
+	.wrapper {
+	width: 99%;
+	margin-left: 0.3%;
+	float: left;
+	/*outline: 1px solid blue;*/
+}
+}
