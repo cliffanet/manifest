@@ -9,45 +9,45 @@
     <link type="text/css" rel="stylesheet" media="all" href="/work.css" />
 
     <title>ВАТУЛИНО :: Взлеты</title>
-
-    <!-- script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.0/jquery.min.js"></script -->
-    <script src="/jquery/jquery.js"></script>
 </head>
 
 <body>
-
     <div class="test"></div>
     <div class='ob'>
-        <div class='refresh'>Текущее время: [% time_now %][% IF dtupd %] / Изменено: [% datetime(dtupd) %][% END %]</div>
+        <div class='refresh'>Текущее время: [% time_now %][% IF dtupd %] / Изменено: [% datetime(dtupd) %][% END %] / [%  ip %]</div>
         <div class='ob2'>
 
-            [% FOREACH fly = fly_list %]
+        [% FOREACH fly = fly_list %]
 
-                <div class='wrapper'>
-                    <h1>[% fly.name %][% IF fly.sheet %] ([% fly.sheet.name %])[% END %]</h1>
-            
-                	<table cellpadding="0" cellspacing="0" border="1" style="border-color: [% fly.sheet.color %]">
-                		<!-- tr class="title">
-                			<td class='number'>№</td>
-                			<td class='fio'>Ф.И.О.</td>
-                			<td class='type'>Тип пар-та</td>
-                			<td class='height'>Высота</td>
-                		</tr -->
-                    [% FOREACH pers = fly.pers_list %]
-                		<tr[% IF pers.group %] class="groupped"[% END %]>
-                			<td class='number' align="right">[% pers.i %]</td>
-                			<td class='fio'>[% pers.name %][% IF !pers.name && pers.group %]<i>-резерв-</i></i>[% END %]</td>
-                			<td class='type'>[% pers.parashute %][% IF (pers.op || pers.zp) && (pers.type == 'prog2') %] ([% pers.op %]/[% pers.zp %])[% END %]</td>
-                			<td class='height' align="right">[% pers.visota %]</td>
-                		</tr>
-                    [% END %]
-                    </table>
-                </div>
-
-                [% IF loop.next && (loop.next.sheetid != fly.sheetid) %]
-                <div id="clear"></div>
+            <div class='wrapper'>
+                <h1>
+                    [% IF fly.before %]<u>[% END %]
+                    [% fly.name %][% IF fly.sheet %] ([% fly.sheet.name %])[% END %]
+                    [% IF fly.closed_recently %] - улетел[% IF fly.closed_recently >= 120 %] ([% int(fly.closed_recently / 60) %] мин)[% END %][% END %]
+                    [% IF fly.before %] - [% IF fly.before > 60 %]готовность [% END %][ [% IF fly.before > 60 %][% round(fly.before / 60) %] мин[% ELSE %]На старт![% END %] ]</u>[% END %]
+                </h1>
+            	<table cellpadding='0' cellspacing='0' border='1' style="width: 100%; border-color: [% IF fly.closed_recently %]#FFFFFF[% ELSE %][% fly.sheet.color %][% END %]">
+            		<!-- tr class="title">
+            			<td class='number'>№</td>
+            			<td class='fio'>Ф.И.О.</td>
+            			<td class='type'>Тип пар-та</td>
+            			<td class='height'>Высота</td>
+            		</tr -->
+                [% FOREACH pers = fly.pers_list %]
+            		<tr[% IF pers.group %] class="groupped"[% END %]>
+            			<td class='number' align="right">[% pers.i %]</td>
+            			<td class='fio'>[% pers.name %][% IF !pers.name && pers.group %]<i>-резерв-</i></i>[% END %]</td>
+            			<td class='type'>[% pers.parashute %][% IF (pers.op || pers.zp) && (pers.type == 'prog2') %] ([% pers.op %]/[% pers.zp %])[% END %]</td>
+            			<td class='height' align="right">[% pers.visota %]</td>
+            		</tr>
                 [% END %]
+                </table>
+            </div>
+
+            [% IF loop.next && (loop.next.sheetid != fly.sheetid) %]
+            <div id="clear"></div>
             [% END %]
+        [% END %]
 
             <div id="clear"></div>
         </div>

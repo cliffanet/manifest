@@ -46,12 +46,12 @@ webctrl_local(
             use Clib::Const;
             use Clib::Log;
             
-            *wparam = sub { WebMain::param; };
+            *wparam = *WebMain::param;
         ",
     ) || die webctrl_error;
 
 my $param;
-sub param { $param ||= Clib::Web::Param::param(prepare => 1) }
+sub param { $param ||= Clib::Web::Param::param(prepare => 1, @_) }
 
 
 sub init {
