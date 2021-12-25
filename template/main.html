@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    [% IF AUTOREFRESH %]<meta http-equiv="refresh" content="[% AUTOREFRESH %]" />[% END %]
+    <meta http-equiv="refresh" content="15" />
     <meta http-equiv="pragma" content="no-cache">
         
     <meta name="viewport" content="width=device-width ,   user-scalable=0,  initial-scale=1, maximum-scale=1" />
@@ -14,26 +14,20 @@
 <body>
     <div class="test"></div>
     <div class='ob'>
-        <div class='refresh'>Текущее время: [% time_now %][% IF dtupd %] / Изменено: [% datetime(dtupd) %][% END %] / [%  ip %]</div>
+        <div class='refresh'>Текущее время: [% DATETIME tmnow %][% IF tmload %] / Изменено: [% DATETIME tmload %][% END %] / [%  ip %]</div>
         <div class='ob2'>
-
-        [% FOREACH fly = fly_list %]
-
+        
+        [% FOREACH sheet = sheetlist %]
+            [% FOREACH fly = sheet.flylist %]
             <div class='wrapper'>
                 <h1>
                     [% IF fly.before %]<u>[% END %]
-                    [% fly.name %][% IF fly.sheet %] ([% fly.sheet.name %])[% END %]
+                    [% fly.name %] ([% sheet.name %])
                     [% IF fly.closed_recently %] - улетел[% IF fly.closed_recently >= 120 %] ([% int(fly.closed_recently / 60) %] мин)[% END %][% END %]
                     [% IF fly.before %] - [% IF fly.before > 60 %]готовность [% END %][ [% IF fly.before > 60 %][% round(fly.before / 60) %] мин[% ELSE %]На старт![% END %] ]</u>[% END %]
                 </h1>
-            	<table cellpadding='0' cellspacing='0' border='1' style="width: 100%; border-color: [% IF fly.closed_recently %]#FFFFFF[% ELSE %][% fly.sheet.color %][% END %]">
-            		<!-- tr class="title">
-            			<td class='number'>№</td>
-            			<td class='fio'>Ф.И.О.</td>
-            			<td class='type'>Тип пар-та</td>
-            			<td class='height'>Высота</td>
-            		</tr -->
-                [% FOREACH pers = fly.pers_list %]
+            	<table cellpadding='0' cellspacing='0' border='1' style="width: 100%; border-color: [% IF fly.closed_recently %]#FFFFFF[% ELSE %][% sheet.color %][% END %]">
+                [% FOREACH pers = fly.pers %]
             		<tr[% IF pers.group %] class="groupped"[% END %]>
             			<td class='number' align="right">[% pers.i %]</td>
             			<td class='fio'>[% pers.name %][% IF !pers.name && pers.group %]<i>-резерв-</i></i>[% END %]</td>
@@ -43,13 +37,10 @@
                 [% END %]
                 </table>
             </div>
-
-            [% IF loop.next && (loop.next.sheetid != fly.sheetid) %]
-            <div id="clear"></div>
-            [% END %]
-        [% END %]
+            [% END # FOREACH fly = sheet.flylist %]
 
             <div id="clear"></div>
+        [% END # FOREACH sheet = sheetlist %]
         </div>
     </div>
 

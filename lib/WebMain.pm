@@ -228,8 +228,10 @@ sub return_html {
     $tmpl || return;
     
     my @p = (
-        href_base => pref(''),
-        ver => {
+        href_base   => pref(''),
+        tmnow       => time(),
+        ip          => $ENV{REMOTE_ADDR}||'',
+        ver         => {
             original=> c('version'),
             full    => c('version') =~ /^(\d*\.\d)(\d*)([a-zA-Z])?$/ ? sprintf("%0.1f.%d%s", $1, $2 || 0, $3?'-'.$3:'') : c('version'),
             date    => Clib::DT::date(c('versionDate')),
