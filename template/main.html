@@ -31,7 +31,7 @@
             		<tr[% IF pers.group %] class="groupped"[% END %]>
             			<td class='number' align="right">[% pers.i %]</td>
             			<td class='fio'>[% pers.name %][% IF !pers.name && pers.group %]<i>-резерв-</i></i>[% END %]</td>
-            			<td class='type'>[% pers.parashute %][% IF (pers.op || pers.zp) && (pers.type == 'prog2') %] ([% pers.op %]/[% pers.zp %])[% END %]</td>
+            			<td class='type'>[% pers.parashute %][% IF (pers.op || pers.zp) && (pers.type eq 'prog2') %] ([% pers.op %]/[% pers.zp %])[% END %]</td>
             			<td class='height' align="right">[% pers.visota %]</td>
             		</tr>
                 [% END %]
