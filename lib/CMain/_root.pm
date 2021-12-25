@@ -15,23 +15,6 @@ sub _root :
     my $flylist = ref($flyday) eq 'HASH' ? $flyday->{flylist} : undef;
     $flylist = [] if ref($flylist) ne 'ARRAY';
     
-    # Распределяем взлёты по страницам
-    my @sheet =
-        reverse
-        map {
-            my $sheet = { %$_ };
-            delete($sheet->{$_})
-                foreach grep { ref $sheet->{$_} } keys %$sheet;
-            
-            my @fly = grep { $_->{sheetid} eq $sheet->{id} } @$flylist;
-            my $sheet1 = { %$sheet }; # чтобы не было перекрёстной ссылки, ведущей к утечке памяти
-            $_->{sheet} = $sheet1 foreach @fly;
-            $sheet->{flylist} = [@fly];
-            
-            @fly ? $sheet : ();
-        }
-        @{ c('flySheet') || [] };
-    
     # Данные для отображения
     my $time = time();
     foreach my $fly (@$flylist) {
@@ -71,19 +54,44 @@ sub _root :
             ($pers->{t}) = grep { $_->{id} eq $pers->{type} } @{ c('persType') || [] };
             $pers->{type_name} = $pers->{t} ? $pers->{t}->{name} : $pers->{type};
         }
-        
-        # Добиваем до нужного числа посад. мест
-        my $sheet = $fly->{sheet};
-        if ($sheet && (my $cnt = $sheet->{count})) {
-            my $pers = ($fly->{pers}||=[]);
-            push(
-                @$pers,
-                {
-                    i       => ++$n,
-                    name    => '',
-                }
-            ) while @$pers < $cnt;
+    }
+    
+    # Уберём все улетевшие.
+    # Сделать это лучше до распределения по страницам
+    @$flylist =
+        grep { !$_->{closed} && !$_->{hidden} }
+        @$flylist;
+    
+    # Распределяем взлёты по страницам
+    my @sheet =
+        reverse
+        map {
+            my $sheet = { %$_ };
+            delete($sheet->{$_})
+                foreach grep { ref $sheet->{$_} } keys %$sheet;
+            
+            my @fly = grep { $_->{sheetid} eq $sheet->{id} } @$flylist;
+            my $sheet1 = { %$sheet }; # чтобы не было перекрёстной ссылки, ведущей к утечке памяти
+            $_->{sheet} = $sheet1 foreach @fly;
+            $sheet->{flylist} = [@fly];
+            
+            @fly ? $sheet : ();
         }
+        @{ c('flySheet') || [] };
+
+    # Добиваем до нужного числа посад. мест
+    foreach my $fly (@$flylist) {
+        my $sheet = $fly->{sheet} || next;
+        my $cnt = $sheet->{count} || next;
+        
+        my $pers = ($fly->{pers}||=[]);
+        push(
+            @$pers,
+            {
+                i       => @$pers+1,
+                name    => '',
+            }
+        ) while @$pers < $cnt;
     }
     
     return
