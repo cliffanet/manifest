@@ -10,10 +10,12 @@ CONFIG += c++11
 
 SOURCES += \
     main.cpp \
-    mainwnd.cpp
+    mainwnd.cpp \
+    moddir.cpp
 
 HEADERS += \
-    mainwnd.h
+    mainwnd.h \
+    moddir.h
 
 FORMS += \
     mainwnd.ui
