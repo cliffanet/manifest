@@ -1,4 +1,4 @@
-QT       += core gui
+QT       += core gui network
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
@@ -11,11 +11,13 @@ CONFIG += c++11
 SOURCES += \
     main.cpp \
     mainwnd.cpp \
-    moddir.cpp
+    moddir.cpp \
+    popup.cpp
 
 HEADERS += \
     mainwnd.h \
-    moddir.h
+    moddir.h \
+    popup.h
 
 FORMS += \
     mainwnd.ui

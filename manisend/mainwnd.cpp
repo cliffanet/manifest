@@ -6,6 +6,9 @@
 #include <QMenu>
 #include <QFileDialog>
 #include <QStandardPaths>
+#include <QNetworkAccessManager>
+#include <QHttpMultiPart>
+#include <QNetworkReply>
 
 MainWnd::MainWnd(QWidget *parent)
     : QMainWindow(parent)
@@ -27,6 +30,11 @@ MainWnd::MainWnd(QWidget *parent)
 MainWnd::~MainWnd()
 {
     delete ui;
+}
+
+void MainWnd::on_btnFLoadSend_clicked()
+{
+    sendSelFile();
 }
 
 void MainWnd::on_btnFLoadRefresh_clicked()
@@ -220,5 +228,86 @@ void MainWnd::forceSelectFile(int i)
 
     // Обновляем отображение в таблице
     emit ui->twFLoadFiles->model()->layoutChanged();
+}
+
+void MainWnd::sendError(QString txt)
+{
+    QString err = "ОШИБКА: " + txt;
+    popUp.setPopupText(err);
+    popUp.setPopupMode(PopUp_ERROR);
+    popUp.show();
+}
+
+bool MainWnd::sendSelFile()
+{
+    if (selFile.isEmpty()) {
+        sendError("Не определён файл для отправки");
+        return false;
+    }
+
+    if (!QFileInfo::exists(selFile)) {
+        sendError("Выбранный файл не существует");
+        return false;
+    }
+
+    QFile *file = new QFile(selFile);
+    if (!file->open(QIODevice::ReadOnly)) {
+        sendError("Не могу открыть файл");
+        return false;
+    }
+
+    QHttpMultiPart *multiPart = new QHttpMultiPart(QHttpMultiPart::FormDataType);
+
+    QHttpPart partFile;
+    partFile.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"file\"; filename=\"manifest.xlsx\""));
+    partFile.setHeader(QNetworkRequest::ContentTypeHeader, QVariant("application/octet-string"));
+    partFile.setBodyDevice(file);
+    file->setParent(multiPart); // we cannot delete the file now, so delete it with the multiPart
+    multiPart->append(partFile);
+
+    //QHttpPart partOpt;
+    //partOpt.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"name\""));
+    //partOpt.setBody("toto");/* toto is the name I give to my file in the server */
+    //multiPart->append(partOpt);
+
+    QVariant vurl = sett.value("url");
+    QString surl = vurl.isValid() ? vurl.toString() : "http://monitor.my/load";
+    QUrl url(surl);
+    QNetworkRequest request(url);
+
+    QNetworkAccessManager *networkManager = new QNetworkAccessManager(this);
+    QNetworkReply *reply = networkManager->post(request, multiPart);
+    multiPart->setParent(reply); // delete the multiPart with the reply
+
+    connect(networkManager, SIGNAL(finished(QNetworkReply*)),
+        this, SLOT(sendDone(QNetworkReply*)));
+
+         //connect(reply, SIGNAL(uploadProgress(qint64, qint64)),
+         //         this, SLOT  (uploadProgress(qint64, qint64)));
+
+    return true;
+}
+
+void MainWnd::sendDone(QNetworkReply *reply)
+{
+    QVariant vstat = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute);
+    if (!vstat.isValid() || (vstat.toUInt() != 200)) {
+        sendError("Статус HTTP-запроса = " + (vstat.isValid() ? vstat.toString() : "-неизвестно-"));
+        return;
+    }
+    QString st = reply->readLine();
+    if (st == "OK") {
+        popUp.setPopupText("Успешно загружено");
+        popUp.setPopupMode(PopUp_SUCCESS);
+        popUp.show();
+        return;
+    }
+
+    if ((st.length() >= 6) && (st.left(6) == "ERROR ")) {
+        sendError(st.right(st.length()-6));
+        return;
+    }
+
+    sendError("Неизвестная проблема при загрузке файла");
 }
 
