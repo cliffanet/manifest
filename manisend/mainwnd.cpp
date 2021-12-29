@@ -22,6 +22,7 @@ MainWnd::MainWnd(QWidget *parent)
     trayIcon->show();
 
     initFLoadFiles();
+    initStatusBar();
 
     updateLabDir();
     refreshDir();
@@ -131,6 +132,16 @@ void MainWnd::initFLoadFiles()
     connect(tmrSendSelFile, &QTimer::timeout, this, &MainWnd::chkSelFile);
 }
 
+// инициализация statusbar
+void MainWnd::initStatusBar()
+{
+    labSelFile = new QLabel(this);
+    labState   = new QLabel(this);
+    labSelFile->setText("Файл не выбран");
+    ui->statusbar->addPermanentWidget(labSelFile);
+    ui->statusbar->addPermanentWidget(labState, 1);
+}
+
 // Обновление label с выбранной папкой
 void MainWnd::updateLabDir()
 {
@@ -162,6 +173,8 @@ void MainWnd::refreshDir()
     QVariant vdir = sett.value("dir");
     if (!vdir.isValid()) {
         emit ui->twFLoadFiles->model()->layoutChanged();
+        // Имя файла в statusbar
+        labSelFile->setText("Не выбрана папка с файлами");
         return;
     }
     QString sdir = vdir.toString();
@@ -169,6 +182,8 @@ void MainWnd::refreshDir()
     QDir dir(sdir);
     if (!dir.exists()) {
         emit ui->twFLoadFiles->model()->layoutChanged();
+        // Имя файла в statusbar
+        labSelFile->setText("Выбранной папки не существует");
         return;
     }
 
@@ -196,6 +211,8 @@ void MainWnd::refreshDir()
         if (di.isNow && selFile.isEmpty()) {
             di.sel = SEL_AUTO;
             selFile = sdir + QDir::separator() + fname;
+            // Имя файла в statusbar
+            labSelFile->setText(fname);
         }
 
         dirs.append(di);
@@ -210,8 +227,11 @@ void MainWnd::refreshDir()
     ui->btnFLoadSend->setEnabled(!selFile.isEmpty());
 
     // Если не смогли найти в авторежиме, то через время ещё раз попробуем
-    if (selFile.isEmpty())
+    if (selFile.isEmpty()) {
         tmrRefreshDir->start(5000);
+        // Имя файла в statusbar
+        labSelFile->setText("Не найден текущий файл");
+    }
     else
     // Загружаем выбранный файл
     if (prevFile != selFile)
@@ -238,6 +258,9 @@ void MainWnd::forceSelectFile(int i)
         vdir.isValid() ?
             vdir.toString() + QDir::separator() + d.fname :
             "";
+    // Имя файла в statusbar
+    labSelFile->setText(vdir.isValid() ? d.fname : "Не выбрана рабочая папка");
+
     // Не забываем отключить таймер автообновления рабочей папки
     if (tmrRefreshDir->isActive())
         tmrRefreshDir->stop();
@@ -253,13 +276,24 @@ void MainWnd::forceSelectFile(int i)
         sendSelFile();
 }
 
-// вывод ошибки при отправке файла
-void MainWnd::sendError(QString txt)
+void MainWnd::popupMessage(const QString &txt, bool isErr)
 {
-    QString err = "ОШИБКА: " + txt;
-    popUp.setPopupText(err);
-    popUp.setPopupMode(PopUp_ERROR);
-    popUp.show();
+    QIcon icon;
+    if (isErr)
+        icon = style()->standardIcon(QStyle::SP_MessageBoxCritical);
+    trayIcon->showMessage("Манифест", txt, icon, 3000);
+}
+
+// вывод ошибки при отправке файла
+void MainWnd::sendError(const QString &txt)
+{
+    // статус отправки в statusbar
+    labState->setText(
+        "["+QDateTime::currentDateTime().toString("hh:ss")+"] " +
+        "Ошибка отправки: " + txt
+    );
+
+    popupMessage("ОШИБКА: " + txt, true);
 
     // При любой ошибке при отправке пробуюем отправить заного через 3 минуты
      QTimer::singleShot(180000, this, &MainWnd::sendSelFile);
@@ -323,6 +357,9 @@ bool MainWnd::sendSelFile()
     // enabled для кнопки "отправка"
     ui->btnFLoadSend->setEnabled(false);
 
+    // статус отправки в statusbar
+    labState->setText("Отправка файла...");
+
     return true;
 }
 
@@ -352,10 +389,11 @@ void MainWnd::sendDone(QNetworkReply *reply)
         if (!selFile.isEmpty())
             tmrSendSelFile->start(1000);
 
+        // статус отправки в statusbar
+        labState->setText("Успешно отправлен в " + dtSelFileSended.toString("hh:mm"));
+
         // Сообщение
-        popUp.setPopupText("Успешно загружено");
-        popUp.setPopupMode(PopUp_SUCCESS);
-        popUp.show();
+        popupMessage("Успешно загружено");
         return;
     }
 

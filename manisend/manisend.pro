@@ -11,13 +11,11 @@ CONFIG += c++11
 SOURCES += \
     main.cpp \
     mainwnd.cpp \
-    moddir.cpp \
-    popup.cpp
+    moddir.cpp
 
 HEADERS += \
     mainwnd.h \
-    moddir.h \
-    popup.h
+    moddir.h
 
 FORMS += \
     mainwnd.ui

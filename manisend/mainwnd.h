@@ -7,9 +7,9 @@
 #include <QItemSelection>
 #include <QTimer>
 #include "moddir.h"
-#include "popup.h"
 
 class QNetworkReply;
+class QLabel;
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWnd; }
@@ -34,10 +34,12 @@ private:
 
     void createTrayIcon();
     void initFLoadFiles();
+    void initStatusBar();
     void updateLabDir();
     void refreshDir();
     void forceSelectFile(int i);
-    void sendError(QString txt);
+    void popupMessage(const QString &txt, bool isErr = false);
+    void sendError(const QString &txt);
     bool sendSelFile();
     void sendDone(QNetworkReply *reply);
     void chkSelFile();
@@ -49,9 +51,11 @@ private:
     QString selFile;
     QDateTime dtSelFileModif;
     QDateTime dtSelFileSended;
-    PopUp popUp;
 
     QTimer *tmrRefreshDir;
     QTimer *tmrSendSelFile;
+
+    QLabel* labSelFile;
+    QLabel* labState;
 };
 #endif // MAINWND_H
