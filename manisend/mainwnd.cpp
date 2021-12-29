@@ -32,11 +32,13 @@ MainWnd::~MainWnd()
     delete ui;
 }
 
+// Кнопка "отправить текущий файл"
 void MainWnd::on_btnFLoadSend_clicked()
 {
     sendSelFile();
 }
 
+// кнопка "Обновить директорию"
 void MainWnd::on_btnFLoadRefresh_clicked()
 {
     refreshDir();
@@ -68,7 +70,7 @@ void MainWnd::on_btnFLoadDir_clicked()
     refreshDir();
 }
 
-
+// двойной клик на списке файлов
 void MainWnd::on_twFLoadFiles_doubleClicked(const QModelIndex &index)
 {
     // По двойному клику принудительно выберем файл для отправки
@@ -123,6 +125,10 @@ void MainWnd::initFLoadFiles()
     // Таймер для автообновления папки, если не смогли авто-найти текущий файл
     tmrRefreshDir = new QTimer(this);
     connect(tmrRefreshDir, &QTimer::timeout, this, &MainWnd::refreshDir);
+
+    // Таймер для проверки изменений в файле для отправки на сервер
+    tmrSendSelFile = new QTimer(this);
+    connect(tmrSendSelFile, &QTimer::timeout, this, &MainWnd::chkSelFile);
 }
 
 // Обновление label с выбранной папкой
@@ -144,6 +150,7 @@ void MainWnd::updateLabDir()
 void MainWnd::refreshDir()
 {
     // Подготавливаемся к чтению папки
+    QString prevFile = selFile;
     dirs.clear();
     selFile = "";
     // Перед началом таймер всегда выключаем,
@@ -199,9 +206,16 @@ void MainWnd::refreshDir()
     emit ui->twFLoadFiles->model()->layoutChanged();
     ui->twFLoadFiles->setSortingEnabled(true);
 
+    // enabled для кнопки "отправка"
+    ui->btnFLoadSend->setEnabled(!selFile.isEmpty());
+
     // Если не смогли найти в авторежиме, то через время ещё раз попробуем
     if (selFile.isEmpty())
         tmrRefreshDir->start(5000);
+    else
+    // Загружаем выбранный файл
+    if (prevFile != selFile)
+        sendSelFile();
 }
 
 // Принудительный выбор файла из списка
@@ -209,6 +223,8 @@ void MainWnd::forceSelectFile(int i)
 {
     if ((i < 0) || (i >= dirs.count()))
         return;
+
+    QString prevFile = selFile;
 
     // Сбрасываем выбор у всех файлов
     for (auto &d: dirs)
@@ -228,18 +244,35 @@ void MainWnd::forceSelectFile(int i)
 
     // Обновляем отображение в таблице
     emit ui->twFLoadFiles->model()->layoutChanged();
+
+    // enabled для кнопки "отправка"
+    ui->btnFLoadSend->setEnabled(!selFile.isEmpty());
+
+    // Загружаем выбранный файл
+    if (!selFile.isEmpty() && (prevFile != selFile))
+        sendSelFile();
 }
 
+// вывод ошибки при отправке файла
 void MainWnd::sendError(QString txt)
 {
     QString err = "ОШИБКА: " + txt;
     popUp.setPopupText(err);
     popUp.setPopupMode(PopUp_ERROR);
     popUp.show();
+
+    // При любой ошибке при отправке пробуюем отправить заного через 3 минуты
+     QTimer::singleShot(180000, this, &MainWnd::sendSelFile);
 }
 
+// отправка выбранного файла
 bool MainWnd::sendSelFile()
 {
+    // всегда останавливаем таймер перед началом отправки файла
+    // запустим обратно только при завершении отправки
+    if (tmrSendSelFile->isActive())
+        tmrSendSelFile->stop();
+
     if (selFile.isEmpty()) {
         sendError("Не определён файл для отправки");
         return false;
@@ -255,6 +288,11 @@ bool MainWnd::sendSelFile()
         sendError("Не могу открыть файл");
         return false;
     }
+
+    // запоминаем lastModified файла,
+    // чтобы дальше он обновлялся автоматически
+    const QFileInfo finf(*file);
+    dtSelFileModif = finf.lastModified();
 
     QHttpMultiPart *multiPart = new QHttpMultiPart(QHttpMultiPart::FormDataType);
 
@@ -279,24 +317,42 @@ bool MainWnd::sendSelFile()
     QNetworkReply *reply = networkManager->post(request, multiPart);
     multiPart->setParent(reply); // delete the multiPart with the reply
 
-    connect(networkManager, SIGNAL(finished(QNetworkReply*)),
-        this, SLOT(sendDone(QNetworkReply*)));
+    connect(networkManager, &QNetworkAccessManager::finished,
+            this, &MainWnd::sendDone);
 
-         //connect(reply, SIGNAL(uploadProgress(qint64, qint64)),
-         //         this, SLOT  (uploadProgress(qint64, qint64)));
+    // enabled для кнопки "отправка"
+    ui->btnFLoadSend->setEnabled(false);
 
     return true;
 }
 
+// завершение отправки файла - надо проверить возвращаемый ответ
 void MainWnd::sendDone(QNetworkReply *reply)
 {
+    // enabled для кнопки "отправка"
+    ui->btnFLoadSend->setEnabled(!selFile.isEmpty());
+
+    // Теперь отрисовываем статус операции
     QVariant vstat = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute);
     if (!vstat.isValid() || (vstat.toUInt() != 200)) {
         sendError("Статус HTTP-запроса = " + (vstat.isValid() ? vstat.toString() : "-неизвестно-"));
         return;
     }
     QString st = reply->readLine();
+
+    // успешное завершение отправки файла
     if (st == "OK") {
+        // время успешной отправки
+        // Оно нам пригодится, если очень долго не будет изменений
+        dtSelFileSended = QDateTime::currentDateTime();
+
+        // Запускаем обратно таймер проверки текущего файла
+        // только в случае успешной отправки,
+        // а в случае любой ошибки будет повторная отправка через 3 минуты
+        if (!selFile.isEmpty())
+            tmrSendSelFile->start(1000);
+
+        // Сообщение
         popUp.setPopupText("Успешно загружено");
         popUp.setPopupMode(PopUp_SUCCESS);
         popUp.show();
@@ -309,5 +365,36 @@ void MainWnd::sendDone(QNetworkReply *reply)
     }
 
     sendError("Неизвестная проблема при загрузке файла");
+}
+
+// проверка раз в сек, был ли изменён файл
+void MainWnd::chkSelFile()
+{
+    if (selFile.isEmpty()) {
+        tmrSendSelFile->stop();
+        return;
+    }
+
+    if (dtSelFileSended.isValid() &&
+        (dtSelFileSended.secsTo(QDateTime::currentDateTime()) >= 1800)) {
+        // отправка, если мы ничего не отправляли более 30 минут,
+        // т.к. если час и более не отправлять файл на сервер,
+        // то данные с сервера сотрутся.
+        sendSelFile();
+        return;
+    }
+
+    const QFile file(selFile);
+    const QFileInfo finf(file);
+    if (!finf.exists())
+        return;
+
+    QDateTime modif = finf.lastModified();
+    if (!modif.isValid())
+        return;
+
+    if (!dtSelFileModif.isValid() || (dtSelFileModif < modif))
+        // Отправка при изменении файла
+        sendSelFile();
 }
 

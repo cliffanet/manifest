@@ -28,7 +28,6 @@ private slots:
     void on_btnFLoadRefresh_clicked();
     void on_btnFLoadDir_clicked();
     void on_twFLoadFiles_doubleClicked(const QModelIndex &index);
-    void sendDone(QNetworkReply *reply);
 
 private:
     Ui::MainWnd *ui;
@@ -40,14 +39,19 @@ private:
     void forceSelectFile(int i);
     void sendError(QString txt);
     bool sendSelFile();
+    void sendDone(QNetworkReply *reply);
+    void chkSelFile();
 
     QSystemTrayIcon *trayIcon;
     QMenu *trayIconMenu;
     QSettings sett;
     CDirList dirs;
     QString selFile;
+    QDateTime dtSelFileModif;
+    QDateTime dtSelFileSended;
     PopUp popUp;
 
     QTimer *tmrRefreshDir;
+    QTimer *tmrSendSelFile;
 };
 #endif // MAINWND_H
