@@ -9,7 +9,7 @@ int main(int argc, char *argv[])
     QCoreApplication::setApplicationName("Manifest");
 
     QApplication a(argc, argv);
-    //a.setQuitOnLastWindowClosed(false); // временно отключим на время разработки
+    a.setQuitOnLastWindowClosed(false);
     MainWnd w;
     w.show();
     return a.exec();
