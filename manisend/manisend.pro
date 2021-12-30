@@ -11,11 +11,15 @@ CONFIG += c++11
 SOURCES += \
     main.cpp \
     mainwnd.cpp \
-    moddir.cpp
+    moddir.cpp \
+    modflyers.cpp \
+    modspecsumm.cpp
 
 HEADERS += \
     mainwnd.h \
-    moddir.h
+    moddir.h \
+    modflyers.h \
+    modspecsumm.h
 
 FORMS += \
     mainwnd.ui

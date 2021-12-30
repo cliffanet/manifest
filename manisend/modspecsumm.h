@@ -1,0 +1,36 @@
+#ifndef MODSPECSUMM_H
+#define MODSPECSUMM_H
+
+#include <QAbstractTableModel>
+#include <QString>
+#include <QList>
+
+typedef struct c_spec_item {
+    QString name;
+    QString code;
+    int flycnt;
+    int perscnt;
+    QString fly;
+} CSpecItem;
+
+typedef QList<CSpecItem> CSpecList;
+
+class ModSpecSumm: public QAbstractTableModel
+{
+    Q_OBJECT
+
+public:
+    ModSpecSumm(CSpecList &_list, QObject *parent = nullptr);
+    int rowCount(const QModelIndex &parent = QModelIndex()) const override;
+    int columnCount(const QModelIndex &parent = QModelIndex()) const override;
+    QVariant headerData(int section, Qt::Orientation orientation, int role) const override;
+    QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
+    Qt::ItemFlags flags(const QModelIndex &index) const override;
+    void sort(int column, Qt::SortOrder order) override;
+
+private:
+    CSpecList *list;  //holds text entered into QTableView
+
+};
+
+#endif // MODSPECSUMM_H

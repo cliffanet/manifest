@@ -8,8 +8,6 @@ use Clib::Web::Param;
 use Clib::Template::Package;
 use Clib::DT;
 
-use JSON::XS;
-
 $SIG{__DIE__} = sub { error('DIE: %s', $_) for @_ };
 
 my $logpid = log_prefix($$);
@@ -250,8 +248,7 @@ sub return_html {
 sub return_default { return return_html('', shift(), '', @_); }
 
 sub return_text {
-    my $text = shift;
-    $text = sprintf($text, @_) if @_;
+    my $text = join("\n", @_);
     
     return
         $text, undef, 'Content-type' => 'text/plain; charset=utf-8';

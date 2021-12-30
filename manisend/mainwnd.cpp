@@ -9,6 +9,9 @@
 #include <QNetworkAccessManager>
 #include <QHttpMultiPart>
 #include <QNetworkReply>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonArray>
 
 MainWnd::MainWnd(QWidget *parent)
     : QMainWindow(parent)
@@ -22,6 +25,8 @@ MainWnd::MainWnd(QWidget *parent)
     trayIcon->show();
 
     initFLoadFiles();
+    initSpecSumm();
+    initFlyers();
     initStatusBar();
 
     updateLabDir();
@@ -121,7 +126,7 @@ void MainWnd::initFLoadFiles()
     font.setBold(true);
     ui->twFLoadFiles->horizontalHeader()->setFont( font );
     ui->twFLoadFiles->horizontalHeader()->setDefaultAlignment(Qt::AlignCenter | (Qt::Alignment)Qt::TextWordWrap);
-    ui->twFLoadFiles->horizontalHeader()->setFixedHeight(ui->twFLoadFiles->horizontalHeader()->height()*2);
+    //ui->twFLoadFiles->horizontalHeader()->setFixedHeight(ui->twFLoadFiles->horizontalHeader()->height()*2);
 
     // Таймер для автообновления папки, если не смогли авто-найти текущий файл
     tmrRefreshDir = new QTimer(this);
@@ -130,6 +135,42 @@ void MainWnd::initFLoadFiles()
     // Таймер для проверки изменений в файле для отправки на сервер
     tmrSendSelFile = new QTimer(this);
     connect(tmrSendSelFile, &QTimer::timeout, this, &MainWnd::chkSelFile);
+}
+
+void MainWnd::initSpecSumm()
+{
+    ui->twSpecSumm->setModel(new ModSpecSumm(specsumm, this));
+    ui->twSpecSumm->setColumnWidth(0,160);
+    ui->twSpecSumm->setColumnWidth(1,70);
+    ui->twSpecSumm->setColumnWidth(2,70);
+    ui->twSpecSumm->setColumnWidth(3,70);
+
+    ui->twSpecSumm->sortByColumn(1, Qt::AscendingOrder);
+    ui->twSpecSumm->sortByColumn(0, Qt::AscendingOrder);
+    //ui->twSpecSumm->horizontalHeader()->setSectionResizeMode(QHeaderView::Fixed);
+
+    QFont font = ui->twSpecSumm->horizontalHeader()->font();
+    font.setBold(true);
+    ui->twSpecSumm->horizontalHeader()->setFont( font );
+    ui->twSpecSumm->horizontalHeader()->setDefaultAlignment(Qt::AlignCenter | (Qt::Alignment)Qt::TextWordWrap);
+}
+
+void MainWnd::initFlyers()
+{
+    ui->twFlyers->setModel(new ModFlyers(flyers, this));
+    ui->twFlyers->setColumnWidth(0,160);
+    ui->twFlyers->setColumnWidth(1,70);
+    ui->twFlyers->setColumnWidth(2,70);
+    ui->twFlyers->setColumnWidth(3,70);
+
+    ui->twFlyers->sortByColumn(1, Qt::AscendingOrder);
+    ui->twFlyers->sortByColumn(0, Qt::AscendingOrder);
+    //ui->twFlyers->horizontalHeader()->setSectionResizeMode(QHeaderView::Fixed);
+
+    QFont font = ui->twFlyers->horizontalHeader()->font();
+    font.setBold(true);
+    ui->twFlyers->horizontalHeader()->setFont( font );
+    ui->twFlyers->horizontalHeader()->setDefaultAlignment(Qt::AlignCenter | (Qt::Alignment)Qt::TextWordWrap);
 }
 
 // инициализация statusbar
@@ -276,6 +317,37 @@ void MainWnd::forceSelectFile(int i)
         sendSelFile();
 }
 
+// проверка раз в сек, был ли изменён файл
+void MainWnd::chkSelFile()
+{
+    if (selFile.isEmpty()) {
+        tmrSendSelFile->stop();
+        return;
+    }
+
+    if (dtSelFileSended.isValid() &&
+        (dtSelFileSended.secsTo(QDateTime::currentDateTime()) >= 1800)) {
+        // отправка, если мы ничего не отправляли более 30 минут,
+        // т.к. если час и более не отправлять файл на сервер,
+        // то данные с сервера сотрутся.
+        sendSelFile();
+        return;
+    }
+
+    const QFile file(selFile);
+    const QFileInfo finf(file);
+    if (!finf.exists())
+        return;
+
+    QDateTime modif = finf.lastModified();
+    if (!modif.isValid())
+        return;
+
+    if (!dtSelFileModif.isValid() || (dtSelFileModif < modif))
+        // Отправка при изменении файла
+        sendSelFile();
+}
+
 void MainWnd::popupMessage(const QString &txt, bool isErr)
 {
     QIcon icon;
@@ -337,10 +409,19 @@ bool MainWnd::sendSelFile()
     file->setParent(multiPart); // we cannot delete the file now, so delete it with the multiPart
     multiPart->append(partFile);
 
-    //QHttpPart partOpt;
-    //partOpt.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"name\""));
-    //partOpt.setBody("toto");/* toto is the name I give to my file in the server */
-    //multiPart->append(partOpt);
+    QHttpPart partOpt;
+    partOpt.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"opt\""));
+    partOpt.setBody("specsumm");
+    multiPart->append(partOpt);
+    partOpt.setBody("flyers");
+    multiPart->append(partOpt);
+
+    if (ui->chkNoSave->isChecked()) {
+        QHttpPart partNoSave;
+        partNoSave.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"nosave\""));
+        partNoSave.setBody("y");
+        multiPart->append(partNoSave);
+    }
 
     QVariant vurl = sett.value("url");
     QString surl = vurl.isValid() ? vurl.toString() : "http://monitor.my/load";
@@ -375,13 +456,19 @@ void MainWnd::sendDone(QNetworkReply *reply)
         sendError("Статус HTTP-запроса = " + (vstat.isValid() ? vstat.toString() : "-неизвестно-"));
         return;
     }
-    QString st = reply->readLine();
+    QString st = reply->readLine().trimmed();
 
     // успешное завершение отправки файла
     if (st == "OK") {
         // время успешной отправки
         // Оно нам пригодится, если очень долго не будет изменений
         dtSelFileSended = QDateTime::currentDateTime();
+
+        // доп опции, которые мы запрашивали
+        specsumm.clear();
+        flyers.clear();
+        while (!reply->atEnd())
+            replyOpt(reply->readLine().trimmed());
 
         // Запускаем обратно таймер проверки текущего файла
         // только в случае успешной отправки,
@@ -405,34 +492,65 @@ void MainWnd::sendDone(QNetworkReply *reply)
     sendError("Неизвестная проблема при загрузке файла");
 }
 
-// проверка раз в сек, был ли изменён файл
-void MainWnd::chkSelFile()
+void MainWnd::replyOpt(const QString &str)
 {
-    if (selFile.isEmpty()) {
-        tmrSendSelFile->stop();
+    int i = str.indexOf(' ');
+    if (i<1)
         return;
+
+    QString opt = str.left(i);
+    QString jsonstr = str.right(str.length()-i-1);
+    QJsonDocument loadDoc = QJsonDocument::fromJson(jsonstr.toUtf8());
+
+    if (opt == "SPECSUMM") {
+        QJsonArray list = loadDoc.array();
+        replySpecSumm(&list);
     }
-
-    if (dtSelFileSended.isValid() &&
-        (dtSelFileSended.secsTo(QDateTime::currentDateTime()) >= 1800)) {
-        // отправка, если мы ничего не отправляли более 30 минут,
-        // т.к. если час и более не отправлять файл на сервер,
-        // то данные с сервера сотрутся.
-        sendSelFile();
-        return;
+    else
+    if (opt == "FLYERS") {
+        QJsonArray list = loadDoc.array();
+        replyFlyers(&list);
     }
-
-    const QFile file(selFile);
-    const QFileInfo finf(file);
-    if (!finf.exists())
-        return;
-
-    QDateTime modif = finf.lastModified();
-    if (!modif.isValid())
-        return;
-
-    if (!dtSelFileModif.isValid() || (dtSelFileModif < modif))
-        // Отправка при изменении файла
-        sendSelFile();
 }
 
+void MainWnd::replySpecSumm(const QJsonArray *list)
+{
+    specsumm.clear();
+    for (const auto &item : *list) {
+        const auto row = item.toObject();
+        CSpecItem s = {
+            .name   = row["name"].toString(),
+            .code   = row["code"].toString(),
+            .flycnt = row["flycnt"].toInt(),
+            .perscnt= row["perscnt"].toInt(),
+            .fly    = row["fly"].toString(),
+        };
+        specsumm.push_back(s);
+    }
+
+    // Обновляем отображение в таблице
+    ui->twSpecSumm->setSortingEnabled(false);
+    emit ui->twSpecSumm->model()->layoutChanged();
+    ui->twSpecSumm->setSortingEnabled(true);
+}
+
+void MainWnd::replyFlyers(const QJsonArray *list)
+{
+    flyers.clear();
+    for (const auto &item : *list) {
+        const auto row = item.toObject();
+        CPersItem p = {
+            .name   = row["name"].toString(),
+            .code   = row["code"].toString(),
+            .flycnt = row["flycnt"].toInt(),
+            .summ   = row["summ"].toInt(),
+            .fly    = row["fly"].toString(),
+        };
+        flyers.push_back(p);
+    }
+
+    // Обновляем отображение в таблице
+    ui->twFlyers->setSortingEnabled(false);
+    emit ui->twFlyers->model()->layoutChanged();
+    ui->twFlyers->setSortingEnabled(true);
+}

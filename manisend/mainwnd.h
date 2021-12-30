@@ -7,9 +7,12 @@
 #include <QItemSelection>
 #include <QTimer>
 #include "moddir.h"
+#include "modspecsumm.h"
+#include "modflyers.h"
 
 class QNetworkReply;
 class QLabel;
+class QJsonArray;
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWnd; }
@@ -34,15 +37,20 @@ private:
 
     void createTrayIcon();
     void initFLoadFiles();
+    void initSpecSumm();
+    void initFlyers();
     void initStatusBar();
     void updateLabDir();
     void refreshDir();
     void forceSelectFile(int i);
+    void chkSelFile();
     void popupMessage(const QString &txt, bool isErr = false);
     void sendError(const QString &txt);
     bool sendSelFile();
     void sendDone(QNetworkReply *reply);
-    void chkSelFile();
+    void replyOpt(const QString &str);
+    void replySpecSumm(const QJsonArray *list);
+    void replyFlyers(const QJsonArray *list);
 
     QSystemTrayIcon *trayIcon;
     QMenu *trayIconMenu;
@@ -51,6 +59,8 @@ private:
     QString selFile;
     QDateTime dtSelFileModif;
     QDateTime dtSelFileSended;
+    CSpecList specsumm;
+    CPersList flyers;
 
     QTimer *tmrRefreshDir;
     QTimer *tmrSendSelFile;
