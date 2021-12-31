@@ -68,7 +68,7 @@ sub _root :
         # Вычисляем изменеия и сообщаем о необходимости оповестить
         if (!$p->bool('nosave')) {
             my @log = xls2fly->pers2log($flylist, $fprev->{flylist});
-            dumper log => \@log;
+            #dumper log => \@log;
         }
     }
     
