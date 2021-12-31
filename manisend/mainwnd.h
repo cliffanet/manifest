@@ -65,6 +65,7 @@ private:
 
     QTimer *tmrRefreshDir;
     QTimer *tmrSendSelFile;
+    QTimer *tmrReSendOnFail;
 
     QLabel* labSelFile;
     QLabel* labState;

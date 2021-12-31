@@ -149,6 +149,10 @@ void MainWnd::initFLoadFiles()
     // Таймер для проверки изменений в файле для отправки на сервер
     tmrSendSelFile = new QTimer(this);
     connect(tmrSendSelFile, &QTimer::timeout, this, &MainWnd::chkSelFile);
+
+    // Таймер для повторной отправки после неудачной
+    tmrReSendOnFail = new QTimer(this);
+    connect(tmrReSendOnFail, &QTimer::timeout, this, &MainWnd::sendSelFile);
 }
 
 void MainWnd::initSpecSumm()
@@ -382,7 +386,8 @@ void MainWnd::sendError(const QString &txt)
     popupMessage("ОШИБКА: " + txt, true);
 
     // При любой ошибке при отправке пробуюем отправить заного через 3 минуты
-     QTimer::singleShot(180000, this, &MainWnd::sendSelFile);
+    if (!selFile.isEmpty())
+        tmrReSendOnFail->start(180000);
 }
 
 // отправка выбранного файла
@@ -392,6 +397,8 @@ bool MainWnd::sendSelFile()
     // запустим обратно только при завершении отправки
     if (tmrSendSelFile->isActive())
         tmrSendSelFile->stop();
+    if (tmrReSendOnFail->isActive())
+        tmrReSendOnFail->stop();
 
     if (selFile.isEmpty()) {
         sendError("Не определён файл для отправки");
