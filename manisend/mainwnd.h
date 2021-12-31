@@ -36,6 +36,7 @@ private:
     Ui::MainWnd *ui;
 
     void createTrayIcon();
+    void trayActivated(QSystemTrayIcon::ActivationReason r);
     void initFLoadFiles();
     void initSpecSumm();
     void initFlyers();

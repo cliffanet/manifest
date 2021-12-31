@@ -108,7 +108,21 @@ void MainWnd::createTrayIcon()
     trayIcon = new QSystemTrayIcon(this);
     trayIcon->setContextMenu(trayIconMenu);
 
+    connect(trayIcon, &QSystemTrayIcon::activated,this, &MainWnd::trayActivated);
+
     trayIcon->setIcon(QIcon(":/icon/icon.ico"));
+}
+
+void MainWnd::trayActivated(QSystemTrayIcon::ActivationReason r)
+{
+    if (r == QSystemTrayIcon::Trigger) {
+        if (!this->isVisible()) {
+            this->show();
+        }
+        else {
+            this->hide();
+        }
+    }
 }
 
 // инициализация отображения списка файлов
