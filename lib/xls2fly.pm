@@ -641,6 +641,99 @@ sub by_prev {
     1;
 }
 
+
+####################################################
+##
+##  Различные представления списка взлётов
+##
+
+# summary по spec-персонам
+sub _view_specsumm {
+    my %spec = ();
+    foreach my $fly (@_) {
+        my ($sheet) = grep { $_->{id} eq $fly->{sheetid} } @{ c('flySheet') || [] };
+        my $flyname = ($sheet||{})->{name} . ': ' . $fly->{name};
+        my $perscnt = @{ $fly->{pers}||[] };
+        
+        foreach my $s (@{ $fly->{spec}||[] }) {
+            my $sc = ($spec{ $s->{code} } ||= {});
+            my $sn = ($sc->{ $s->{name} } ||= 
+                        {
+                            code => $s->{code},
+                            name => $s->{name},
+                            perscnt => 0,
+                            fly => [],
+                        });
+            $sn->{perscnt} += $perscnt;
+            push @{ $sn->{fly} }, $flyname . ' = ' . $perscnt;
+        }
+    }
+    
+    my @spec = 
+        sort {
+            ($a->{code} cmp $b->{code}) ||
+            ($a->{name} cmp $b->{name})
+        }
+        map { values %$_; } 
+        values %spec;
+    foreach my $s (@spec) {
+        $s->{flycnt} = @{ $s->{fly} };
+        $s->{fly} = join '; ', @{ $s->{fly} };
+    }
+    
+    return [@spec];
+}
+
+# участники взлётов
+sub _view_flyers {
+    my %pers = ();
+    foreach my $fly (@_) {
+        my ($sheet) = grep { $_->{id} eq $fly->{sheetid} } @{ c('flySheet') || [] };
+        my $flyname = ($sheet||{})->{name} . ': ' . $fly->{name};
+        
+        foreach my $p (@{ $fly->{pers}||[] }) {
+            my $c = $p->{code};
+            $c =~ s/^\s+//;
+            $c =~ s/\s+$//;
+            my ($code, $summ) = $c =~ /^(?:(.+)\s+)?(\d+)$/;
+            ($code, $summ) = ($c, 0) if !defined($summ);
+            $code = '' if !defined($code);
+            my $pn = ($pers{ $p->{name} } ||= {});
+            my $pi = ($pn->{ $code } ||= 
+                        {
+                            name => $p->{name},
+                            code => $code,
+                            summ => 0,
+                            fly => [],
+                        });
+            $pi->{summ} += $summ;
+            push @{ $pi->{fly} }, $flyname;
+        }
+    }
+    
+    my @pers = 
+        sort {
+            ($a->{code} cmp $b->{code}) ||
+            ($a->{name} cmp $b->{name})
+        }
+        map { values %$_; } 
+        values %pers;
+    foreach my $p (@pers) {
+        $p->{flycnt} = @{ $p->{fly} };
+        $p->{fly} = join '; ', @{ $p->{fly} };
+    }
+    
+    return [@pers];
+}
+
+my %view = (
+    specsumm    => \&_view_specsumm,
+    flyers      => \&_view_flyers,
+);
+sub view {
+    return $view{ shift() };
+}
+
 ####################################################
 
 1;
