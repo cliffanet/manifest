@@ -424,7 +424,10 @@ bool MainWnd::sendSelFile()
     QHttpMultiPart *multiPart = new QHttpMultiPart(QHttpMultiPart::FormDataType);
 
     QHttpPart partFile;
-    partFile.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"file\"; filename=\"manifest.xlsx\""));
+    QString fname = selFile;
+    fname.remove('"');
+    fname.remove('\\');
+    partFile.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"file\"; filename=\""+fname+"\""));
     partFile.setHeader(QNetworkRequest::ContentTypeHeader, QVariant("application/octet-string"));
     partFile.setBodyDevice(file);
     file->setParent(multiPart); // we cannot delete the file now, so delete it with the multiPart
@@ -449,12 +452,12 @@ bool MainWnd::sendSelFile()
     QUrl url(surl);
     QNetworkRequest request(url);
 
-    QNetworkAccessManager *networkManager = new QNetworkAccessManager(this);
-    QNetworkReply *reply = networkManager->post(request, multiPart);
+    QNetworkAccessManager *manager = new QNetworkAccessManager(this);
+    QNetworkReply *reply = manager->post(request, multiPart);
     multiPart->setParent(reply); // delete the multiPart with the reply
+    manager->setParent(reply); // delete the manager with the reply
 
-    connect(networkManager, &QNetworkAccessManager::finished,
-            this, &MainWnd::sendDone);
+    connect(manager, &QNetworkAccessManager::finished, this, &MainWnd::sendDone);
 
     // enabled для кнопки "отправка"
     ui->btnFLoadSend->setEnabled(false);

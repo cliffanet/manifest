@@ -33,8 +33,9 @@ sub _root :
     my $fname = $dir.'/src.xlsx';
     my $p = wparam(file => { file => $fname });
     
+    my $srcname = $p->str('file');
     my $size = -s $fname;
-    debug('file len: %d', $size);
+    debug('file: len=%d, name=%s', $size, $srcname);
     
     $size || return rerr('No file to load');
     
@@ -52,11 +53,23 @@ sub _root :
         || return rerr('Memcached init');
     
     my $fprev = $memd->get('flyday');
-    if ((ref($fprev) eq 'HASH') && (ref($fprev->{flylist}) eq 'ARRAY')) {
+    if (
+        # лююые изменения в документе будем проверять не только в случае
+        # наличия предыдущей версии,
+        (ref($fprev) eq 'HASH') && (ref($fprev->{flylist}) eq 'ARRAY') &&
+        # но и при изменении $srcname,
+        # т.к. если мы парсим совсем другой файл,
+        # то получим кучу кривых "изменений", которых на самом деле нет
+        $srcname && ($srcname eq $fprev->{srcname})
+        ) {
         # Дополнительные параметры, основанные на разнице от прошлой загрузки
         xls2fly->by_prev($flylist, $fprev->{flylist});
         
         # Вычисляем изменеия и сообщаем о необходимости оповестить
+        if (!$p->bool('nosave')) {
+            my @log = xls2fly->pers2log($flylist, $fprev->{flylist});
+            dumper log => \@log;
+        }
     }
     
     # Сохраняем
@@ -67,6 +80,7 @@ sub _root :
         $memd->set(
             flyday => {
                     time    => time(),
+                    srcname => $srcname,
                     flylist => $flylist,
             },
             3600
@@ -79,7 +93,7 @@ sub _root :
     # Мы их будем выводить в json-формате построчно после OK.
     foreach my $ol ($p->allstr('opt')) {
         foreach my $o (split(/\s*,\s*/, $ol)) {
-            my $v = xls2fly::view($o)
+            my $v = xls2fly->view($o)
                 || return rerr('Unknown required opt: %s', $o);
             
             my $r = $v->(@$flylist)

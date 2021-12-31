@@ -731,7 +731,126 @@ my %view = (
     flyers      => \&_view_flyers,
 );
 sub view {
-    return $view{ shift() };
+    shift() if $_[0] && (($_[0] eq __PACKAGE__) || (ref($_[0]) eq __PACKAGE__));
+    my $view = shift;
+    my $log = log_prefix('xls2fly->view(\'%s\')', $view);
+    return $view{ $view };
+}
+
+
+####################################################
+##
+##  Получение изменений по участникам взлётов
+##
+sub pers2log {
+    shift() if $_[0] && (($_[0] eq __PACKAGE__) || (ref($_[0]) eq __PACKAGE__));
+    
+    my $flist = shift() || return;
+    my $fprev = shift() || return;
+    
+    # Сформируем хеш участников из предыдущего сохранения
+    # структура: имя_участника => { взлёт1 => { fly => { поля взлёта }, pers => { поля участника } }, взлётN => { ... } }
+    # Поля взлёта нам нужны, чтобы при логировании удалённых из взлётов участников у нас были данные по взлёту, из которого его удалили
+    # Поля pers нужны, чтобы проверить изменения, если участник остался во взлёте
+    my %pers = ();
+    my $fnum = 0;
+    foreach my $fly (@$fprev) {
+        $fnum ++;
+        my $flykey =  join ' :: ', $fly->{sheetid}, lc($fly->{name});
+        my %fly = %$fly;
+        delete($fly{$_}) foreach qw/pers spec/;
+        my @pers = @{ $fly->{pers}||[] }; # Возможно, сюда надо будет добавить ещё каких-то спец-персон
+        foreach my $p (@pers) {
+            my $perskey = lc($p->{name}) || next; # персон без имени не логируем
+            
+            my $pf = ($pers{$perskey} ||= {});
+            $pf->{$flykey} = { fly => { %fly }, pers => $p, n => $fnum };
+        }
+    }
+    
+    # теперь для каждого участника смотрим изменения по взлётам
+    # $flykey и $perskey надо определять по такому же алгоритму, что и в предыдущем цикле
+    my @log = ();
+    my %dup = ();
+    foreach my $fly (@$flist) {
+        my $flykey =  join ' :: ', $fly->{sheetid}, lc($fly->{name});
+        my %fly = %$fly;
+        delete($fly{$_}) foreach qw/pers spec/;
+        my @pers = @{ $fly->{pers}||[] }; # Возможно, сюда надо будет добавить ещё каких-то спец-персон
+        foreach my $p (@pers) {
+            my $perskey = lc($p->{name}) || next; # персон без имени не логируем
+            my $pfkey = join ' :: ', $flykey, $perskey;
+            
+            if ($dup{$pfkey}) {
+                # Контроль повтора во взлёте такой же фамилии
+                push @log, {
+                    op  => 'D',
+                    fly => { %fly },
+                    pers=> $p
+                };
+                next;
+            }
+            
+            $dup{$pfkey} = 1;
+            my $pf = ($pers{$perskey} || {});
+            if (my $prev = delete $pf->{$flykey}) {
+                # Как был так и остался во взлёте,
+                # проверим, есть ли изменения в полях
+                my $pp = $prev->{pers};
+                my %pn = %$p;
+                foreach my $f (keys %$pp) {
+                    my $vp = $pp->{$f};
+                    my $vn = delete $pn{$f};
+                    next if defined($vp) && !defined($vn);
+                    next if !defined($vp) && defined($vn);
+                    next if defined($vp) && defined($vn) && ($vp ne $vn);
+                    # удаляем все поля из предыдущей версии, которые не изменились
+                    delete($pp->{$f});
+                }
+                $pp->{$_} = $pn{$_} foreach keys %pn;
+                
+                # в итоге после всех сравнений - %$pp хранит все изменившиеся поля
+                %$pp || next; # и если изменений нет, то и не логируем
+                
+                push @log, {
+                    op  => 'e',
+                    fly => { %fly },
+                    prev=> $pp,     # prev - хранит только изменившиеся поля с предыдущего сохранения
+                    pers=> $p       # pers - в любом случае хранит все текущие поля
+                };
+            }
+            else {
+                # был добавлен во взлёт
+                push @log, {
+                    op  => 'a',
+                    fly => { %fly },
+                    pers=> $p
+                };
+            }
+        }
+    }
+    
+    # оставшиеся в %pers взлёты - это те взлёты, откуда участник был удалён
+    # 
+    # Для красоты вывода информации, будем оповещать об удалении в самом начале списка,
+    # для этого все удаления добавим в отдельный список
+    my @del = ();
+    foreach my $perskey (%pers) {
+        my $pf = $pers{$perskey} || next;
+        my @prev =
+            sort { $a->{n} <=> $b->{n} } # сортировка взлётов в исходном порядке (для красоты вывода)
+            values %$pf;
+        
+        foreach my $prev (@prev) {
+            push @del, {
+                op  => 'd',
+                fly => $prev->{fly},
+                pers=> $prev->{pers}
+            };
+        }
+    }
+    
+    return @del, @log;
 }
 
 ####################################################
