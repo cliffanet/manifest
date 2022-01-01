@@ -1,0 +1,28 @@
+#!/bin/sh
+#
+# $FreeBSD: telegramd (manifest), v1.0 2021/12/24 23:10:55 flood Exp 
+#
+# PROVIDE: manifest
+# REQUIRE: NETWORKING
+#
+# Add the following line to /etc/rc.conf to enable manifest_telegramd:
+#
+# manifest_telegramd_enable="YES"
+#
+
+manifest_telegramd_enable="${manifest_telegramd_enable-NO}"
+. /etc/rc.subr
+
+
+name=manifest_telegramd
+rcvar=`set_rcvar`
+
+prefix=/home/manifest
+procname=Manifest-Telegram-Bot
+pidfile=/var/run/manifest/telegramd.pid
+required_files="${prefix}/redefine.conf"
+command="${prefix}/bin/telegramd"
+
+load_rc_config ${name}
+
+run_rc_command "$1"
