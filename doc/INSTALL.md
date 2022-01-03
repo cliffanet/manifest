@@ -351,12 +351,12 @@
 * Подключаем старую (нерабочую) SD-карту через любой USB-кардридер
 
 * Выполняем команды
-    
-    /usr/local/etc/rc.d/redis stop
-    
-    mount /dev/da0s1a /mnt
-    cp /home/mnt/redis/* /home/redis/
-    
-    umount /mnt
-    
-    /usr/local/etc/rc.d/redis start
+
+        /usr/local/etc/rc.d/redis stop
+        
+        mount /dev/da0s1a /mnt
+        cp /home/mnt/redis/* /home/redis/
+        
+        umount /mnt
+        
+        /usr/local/etc/rc.d/redis start
