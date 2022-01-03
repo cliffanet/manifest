@@ -199,6 +199,7 @@
     
     nginx_enable="YES"
     manifest_main_enable="YES"
+    manifest_telegramd="YES"
 
 ### /usr/local/etc/nginx/nginx.conf
 

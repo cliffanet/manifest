@@ -122,13 +122,13 @@ sub request {
         return;
     }
     local $SIG{__DIE__} = undef;
+    
     $isreq = 1;
     my $r = eval { $api->api_request($method, @_ ? { @_ } : ()) };
     undef $isreq;
-    if (!$r && $@) {
-        $r = { error => $@ };
-    }
-    return $r || { error => 'Unknown error' };
+    
+    $r ||= { error => $@ || 'Unknown error' };
+    return $r;
 }
 
 # Ответ в чат с пользователем
@@ -147,8 +147,14 @@ sub reply {
         text    => $msg,
     );
     
-    error('Can\'t reply to chatid=%d: %s', $chatid, $r->{error})
-        if $r && $r->{error};
+    if ($r) {
+        if (my $err = $r->{error}) {
+            error('Can\'t send to chatid=%d: %s', $chatid, $err);
+        }
+        elsif ($r->{result}) {
+            debug('Send[chatid=%d] %s', $chatid, $msg);
+        }
+    }
     
     return $r && $r->{result} ? 1 : 0;
 }

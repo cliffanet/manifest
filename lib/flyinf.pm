@@ -21,7 +21,7 @@ use Excel::Reader::XLSX;
 ##
 sub fsheet {
     shift() if $_[0] && (($_[0] eq __PACKAGE__) || (ref($_[0]) eq __PACKAGE__));
-    my $fly = shift;
+    my $fly = shift() || return;
     
     ($fly->{sheet}) =
         grep { $fly->{sheetid} eq $_->{id} }
@@ -42,7 +42,7 @@ sub fsheet {
 ##
 sub fstate {
     shift() if $_[0] && (($_[0] eq __PACKAGE__) || (ref($_[0]) eq __PACKAGE__));
-    my $fly = shift;
+    my $fly = shift() || return;
     
     my $time = time();
     $fly->{$_} = 0 foreach qw/hidden closed closed_recently/;
