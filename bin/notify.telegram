@@ -122,6 +122,25 @@ foreach my $l (@log) {
                 $fly->{sheet}->{name}
         );
     }
+    elsif (($l->{op} eq 'b') && (!defined($l->{beftime}) || $l->{beftime} > 0)) {
+        reply(
+            $cid,
+            ntf_beftime => 
+                $p->{name},
+                $l->{beftime},
+                $fly->{name},
+                $fly->{sheet}->{name}
+        );
+    }
+    elsif ($l->{op} eq 'b') {
+        reply(
+            $cid,
+            ntf_flynow => 
+                $p->{name},
+                $fly->{name},
+                $fly->{sheet}->{name}
+        );
+    }
 }
 
 exit 0;

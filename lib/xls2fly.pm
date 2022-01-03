@@ -621,6 +621,7 @@ sub by_prev {
         if (!$fold || !$fold->{name} || !$fly->{name} || ($fold->{name} ne $fly->{name})) {
             # При любой из этих проблем помечаем meta как fail
             $fly->{meta_fail} = 1 if defined($fly->{meta}) && ($fly->{meta} ne '');
+            next;
         }
         
         # Фисксируем момент изменение "meta"
@@ -635,7 +636,7 @@ sub by_prev {
         else {
             # Если ничего не менялось,
             # сохраняем параметры meta_prev и meta_time между обновлениями файла
-            foreach my $f (qw/meta_prev meta_prtm meta_time/) {
+            foreach my $f (qw/meta_prev meta_prtm meta_time meta_fail/) {
                 $fly->{$f} = $fold->{$f} if exists $fold->{$f};
             }
         }

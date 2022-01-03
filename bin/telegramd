@@ -289,8 +289,8 @@ sub cmd_inf {
         return;
     }
     
-    my $fprev = $memd->get('flyday');
-    if ((ref($fprev) ne 'HASH') || (ref($fprev->{flylist}) ne 'ARRAY')) {
+    my $flyday = $memd->get('flyday');
+    if ((ref($flyday) ne 'HASH') || (ref($flyday->{flylist}) ne 'ARRAY')) {
         reply($chat->{id}, 'inf_flynull');
         return;
     }
@@ -303,11 +303,11 @@ sub cmd_inf {
     # b - взлёт, которому дана готовность
     # f - недавно улетевший (ещё летающий)
     # h - давно улетевший (выполненный взлёт)
-    foreach my $fly (@{ $fprev->{flylist} }) {
+    foreach my $fly (@{ $flyday->{flylist} }) {
         # Смотрим, есть ли мы в этом взлёте
         my @pers =
             grep { $_->{name} =~ /^$regexp$/i }
-            @{ $fly->{pers} };
+            @{ $fly->{pers} || [] };
         @pers || next;
         
         # Определяем состояние этого взлёта

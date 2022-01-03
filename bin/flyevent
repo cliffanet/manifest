@@ -1,0 +1,178 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+use utf8;
+
+use Clib::Proc qw|script1 lib|;
+use Clib::Const ':utf8';
+use Clib::Log 'log_flyevent';
+use Clib::Proc qw|pid=$pidPath/flyevent.pid|;
+
+use Cache::Memcached::Fast;
+use JSON::XS;
+
+use flyinf;
+
+$SIG{__DIE__} = sub { error('DIE: %s', $_) for @_ };
+
+while (1) {
+    check() || last;
+    
+    # проверяем, есть ли время еще подождать (до конца минуты, т.к. выполняемся по крону)
+    my($sec, $min, $hour, $mday, $mon, $year, $wday, $yday, $isdst) = localtime(time());
+    last if $sec > 54;
+    
+    sleep 5;
+}
+
+
+exit 0;
+
+###########################################################
+###########################################################
+###########################################################
+
+# Основное тело проверки каждые 5 сек
+sub check {
+    # Получаем список взлётов
+    my $memd = Cache::Memcached::Fast->new( c('MemCached') );
+    if (!$memd) {
+        error('MemCached fail');
+        return;
+    }
+    
+    my $flyday = $memd->get('flyday');
+    if ((ref($flyday) ne 'HASH') || (ref($flyday->{flylist}) ne 'ARRAY')) {
+        return 1;
+    }
+    
+    # Взлёты с оповещением готовности
+    my @fly = flyevent($memd, @{ $flyday->{flylist} });
+
+    # Превращаем взлёты, которым надо дать готовность,
+    # в логи по каждому участнику
+    my @log = 
+        map {
+            my $fly = { %$_ };
+            delete($fly->{$_}) foreach qw/pers spec sheet/;
+            
+            map { {
+                op  => 'b',
+                fly => $fly,
+                beftime => $fly->{beftime},
+                pers=> $_,
+            } }
+            @{ $_->{pers}||[] };
+        }
+        @fly;
+    
+    # Отправляем сообщения.
+    # Кто подписан, а кто нет, выяснит уже сам скрипт notify.xxx
+    send_messages(@log) if @log;
+    
+    1;
+}
+
+# Выгребаем взлёты, которым дана готовность,
+# о которой надо оповестить
+sub flyevent {
+    my $memd = shift() || return;
+    
+    my @fly = ();
+    foreach my $fly (@_) {
+        # нет персов - нет и оповещений
+        @{ $fly->{pers} || [] } || next;
+        next if $fly->{meta_fail};
+        flyinf->fsheet($fly);
+        
+        # смотрим, делали мы уже оповещение этому взлёту
+        my $flykey = join ' :: ', 'flyevent', $fly->{sheetid}, lc($fly->{name});
+        $flykey =~ s/\s+/_/g;
+        my $evtime = $memd->get($flykey);
+        
+        flyinf->fstate($fly);
+        # Время текущей готовности
+        my $beftime;
+        if ($fly->{state} eq 'b') {
+            $beftime = $fly->{before};
+            $beftime = 0 if $beftime < 0;
+        }
+        elsif ($fly->{state} eq 't') {
+            $beftime = 0;
+        }
+        else {
+            if (($fly->{state} eq 'q') && defined($evtime)) {
+                # если статус вернулся на "в очереди",
+                # удалим инфу о том, что мы уже давали готовность,
+                # т.к. видимо, готовность отменили
+                debug('Delete event for fly [%s] %s', $fly->{sheet}->{name}, $fly->{name});
+                $memd->delete($flykey);
+            }
+            next;
+        }
+        
+        $beftime = int sprintf('%.0f', $beftime/60);
+        
+        if (defined($evtime) && ($evtime =~ /^\d+$/)) {
+            # Мы уже давали этому взлёту готовность
+            # И если нулевую готовность (на старт) мы уже давали,
+            # больше ничего оповещать не надо
+            $evtime = int($evtime) || next;
+            
+            # Проверяем, какая следующая
+            my ($next) =
+                grep { $_ < $evtime }
+                (30, 20, 15, 10, 5, 0);
+            # Ещё раз проверяем, есть ли готовности,
+            # которые мы бы ещё могли дать, но не давали
+            defined($next) || next;
+            
+            # дошла ли реальная готовность до следущей
+            next if $beftime > $next;
+        }
+        
+        # этому взлёту надо дать готовность (оповестить)
+        debug('Event `%d min` for fly [%s] %s', $beftime, $fly->{sheet}->{name}, $fly->{name});
+        $fly->{beftime} = $beftime;
+        push @fly, $fly;
+        
+        # И сразу же сохраняем, что мы давали этому взлёту готовность,
+        # чтобы ничто происходящее дальше на это не повлияло.
+        # И пользователь не был бы засыпан флудом одинаковых сообщений.
+        my $ok = $memd->set($flykey => $beftime, 3600);
+        if (!$ok) {
+            error('MemCached write fail');
+            return;
+        }
+    }
+    
+    return @fly;
+}
+
+sub send_messages {
+    @_ || return;
+    my $log = 
+        eval { JSON::XS->new->utf8->pretty(0)->canonical->encode([ @_ ]) };
+    $log || return;
+    
+    foreach my $type (qw/telegram/) {
+        my $cmd = Clib::Proc::ROOT().'/bin/notify.'.$type;
+        my $fh;
+        if (!open($fh, "|$cmd")) {
+            error('Can\'t exec \'%s\': %s', $cmd, $!);
+            next;
+        }
+        print $fh $log;
+        close $fh;
+        
+        debug('sended by %s - %d messages', $type, scalar(@_));
+    }
+    
+    1;
+}
+
+
+#==========================================================
+#================================================== End ===
+#==========================================================

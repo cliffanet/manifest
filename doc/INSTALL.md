@@ -144,7 +144,7 @@
 
 ### Устанавливаем пакеты
 
-    pkg install nginx memcached git-lite mpd5 \
+    pkg install nginx memcached redis git-lite mpd5 \
         p5-Module-Find p5-Archive-Zip p5-OLE-Storage_Lite p5-XML-LibXML \
         p5-Cache-Memcached-Fast p5-JSON-XS \
         p5-FCGI p5-FCGI-ProcManager
@@ -165,6 +165,7 @@
 Дописываем в самый конец:
 
     */30    *       *       *       *       root    /usr/sbin/ntpdate -u 0.ru.pool.ntp.org 1.ru.pool.ntp.org 2.ru.pool.ntp.org >> /dev/null
+    */1     *       *       *       *       root    /home/manifest/bin/flyevent
     3       1       *       *       *       root    /usr/local/etc/rc.d/mpd5 restart
 
 ### /etc/fstab
@@ -176,6 +177,8 @@
 Это создаст раздел для временных файлов, хранимый в RAM
 
 ### /etc/rc.conf
+
+Файл целиком:
 
     hostname="manifest.cliffa.net"
     
@@ -196,12 +199,15 @@
     
     memcached_enable="YES"
     memcached_flags="-a 0777 -s /var/run/memcached/memcached.sock"
+    redis_enable="YES"
     
     nginx_enable="YES"
     manifest_main_enable="YES"
     manifest_telegramd="YES"
 
 ### /usr/local/etc/nginx/nginx.conf
+
+Файл целиком:
 
     #user  nobody;
     worker_processes  10;
@@ -246,7 +252,15 @@
         }
     }
 
+### /usr/local/etc/redis.conf
+
+Найти и изменить строчку:
+
+    dir /home/redis/
+
 ### /usr/local/etc/mpd5/mpd.conf
+
+Файл целиком:
 
     startup:
     	# configure mpd users
@@ -286,6 +300,8 @@
     	open
 
 ### /usr/local/etc/mpd5/c.up
+
+Файл целиком (надо создать):
 
     #!/bin/sh
     # system: command "/usr/local/etc/mpd5/c.up ng0 inet 10.190.2.100/32 192.168.5.1 '-' '' '' '91.219.25.27'"

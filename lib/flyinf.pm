@@ -60,16 +60,21 @@ sub fstate {
             $fly->{closed} = 1;
         }
     }
-    elsif (($fly->{meta} =~ /^\s*(\d+)\s*$/) && $fly->{meta_time}) {
-        # Взлёт, которому дали готовность
-        my $tm = $fly->{meta_time} + ($1 * 60);
-        if ($tm >= $time) {
-            $fly->{before} = $tm - $time + 1;
+    elsif ($fly->{meta} =~ /^\s*(\d+)\s*$/) {
+        if ($fly->{meta_time}) {
+            # Взлёт, которому дали готовность
+            my $tm = $fly->{meta_time} + ($1 * 60);
+            if ($tm >= $time) {
+                $fly->{before} = $tm - $time + 1;
+            }
+            else {
+                $fly->{closed_recently} = $time - $tm;
+                $fly->{closed} = 1 if $fly->{closed_recently} > 600;
+            
+            }
         }
         else {
-            $fly->{closed_recently} = $time - $tm;
-            $fly->{closed} = 1 if $fly->{closed_recently} > 600;
-            
+            $fly->{closed} = 1;
         }
     }
     

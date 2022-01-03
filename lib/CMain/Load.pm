@@ -96,6 +96,7 @@ sub _root :
     # Вычисляем изменения и сообщаем о необходимости оповестить
     if ($fprev && !$p->bool('nosave')) {
         my @log = flyinf->pers2log($flylist, $fprev->{flylist});
+        # Кто подписан, а кто нет, выяснит уже сам скрипт notify.xxx
         send_messages(@log) if @log;
     }
     
