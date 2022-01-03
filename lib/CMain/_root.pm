@@ -16,35 +16,9 @@ sub _root :
     $flylist = [] if ref($flylist) ne 'ARRAY';
     
     # Данные для отображения
-    my $time = time();
     foreach my $fly (@$flylist) {
         # обработка поля meta
-        $fly->{$_} = 0 foreach qw/hidden closed closed_recently/;
-        if ($fly->{meta} =~ /\-/) {
-            # скрытый взлёт
-            $fly->{hidden} = 1;
-        }
-        elsif ($fly->{meta} =~ /\*/) {
-            # Взлёт, помеченный как "улетевший"
-            if ((my $tm = $fly->{meta_time}) && ($fly->{meta_prev} !~ /^\s*(\d+)\s*$/)) {
-                $fly->{closed_recently} = $time - $tm;
-                $fly->{closed} = 1 if $fly->{closed_recently} > 600;
-            }
-            else {
-                $fly->{closed} = 1;
-            }
-        }
-        elsif (($fly->{meta} =~ /^\s*(\d+)\s*$/) && $fly->{meta_time}) {
-            # Взлёт, которому дали готовность
-            my $tm = $fly->{meta_time} + ($1 * 60);
-            if ($tm >= $time) {
-                $fly->{before} = $tm - $time + 1;
-            }
-            else {
-                $fly->{closed_recently} = $time - $tm;
-                $fly->{closed} = 1 if $fly->{closed_recently} > 600;
-            }
-        }
+        flyinf->fstate($fly);
         
         # Персоны
         my $n = 0;
