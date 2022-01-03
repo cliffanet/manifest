@@ -159,6 +159,7 @@
     chown nobody:nobody /var/run/memcached
     
     mkdir /home/manifest.tmp
+    mkdir /home/redis
 
 ### /etc/crontab
 
@@ -337,3 +338,25 @@
     cd /home/manifest
     ./export.master.sh
 
+
+## Восстановление базы пользователей
+
+Пользователи системы оповещения о взлётах хранятся в отдельной БД на постоянной основе.
+Это единственное, что хранится и не стирается автоматически.
+
+При потере этой базы всем пользователям придётся регистрироваться заного.
+
+Чтобы это не пришлось делать, файлы из папки /home/redis старой флешки необходимо перенести на новую.
+
+* Подключаем старую (нерабочую) SD-карту через любой USB-кардридер
+
+* Выполняем команды
+    
+    /usr/local/etc/rc.d/redis stop
+    
+    mount /dev/da0s1a /mnt
+    cp /home/mnt/redis/* /home/redis/
+    
+    umount /mnt
+    
+    /usr/local/etc/rc.d/redis start
