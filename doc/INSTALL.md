@@ -302,6 +302,7 @@
     mkdir /usr/local/lib/perl5/site_perl/Clib
     ln -s /home/Clib/Proc.pm /usr/local/lib/perl5/site_perl/Clib/Proc.pm
     ln -s /home/manifest/rc.d/freebsd/manifest.main.fcgi /usr/local/etc/rc.d/manifest.main.fcgi
+    ln -s /home/manifest/rc.d/freebsd/manifest.telegramd /usr/local/etc/rc.d/manifest.telegramd
     
     mkdir /home/manifest
     
