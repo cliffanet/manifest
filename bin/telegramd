@@ -9,10 +9,13 @@ use Clib::Const ':utf8';
 use Clib::Log 'log_telegramd';
 
 use Clib::DT;
+
+use WWW::Telegram::BotAPI;
+use Cache::Memcached::Fast;
 use RedisDB;
 use Encode;
 
-use WWW::Telegram::BotAPI;
+use flyinf;
 
 $SIG{__DIE__} = sub { error('DIE: %s', $_) for @_ };
 
@@ -102,6 +105,9 @@ while ($api) {
         }
         elsif ($msg->{text} =~ /^(?:уд(алить)?|unreg|del(ete)?)/i) {
             cmd_unreg($chat);
+        }
+        elsif ($msg->{text} =~ /^(?:инф(ормация)?|inf(o)?)/i) {
+            cmd_inf($chat);
         }
     }
 }
@@ -193,9 +199,11 @@ sub redis {
 ##==========================================================
 ##==========================================================
 
+# Регистрация в системе
 sub cmd_im {
     my ($chat, $name) = @_;
     
+    # проверка формата указанного имени
     my @name;
     if (!defined($name) ||
         !(@name = ($name =~ /^\s*(([a-zA-Zа-яА-Я]+)(?:\s*([a-zA-Zа-яА-Я]\.(?:[a-zA-Zа-яА-Я]\.)?))?)\s*$/))) {
@@ -205,43 +213,183 @@ sub cmd_im {
     
     my ($full, $fam, $io) = @name;
     
-    #my $code = lc $full;
-    #$code =~ s/\s//g;
-    
+    # Формируем регулярку, по которой будем искать это имя во взлёте
     my $regexp = $fam;
     if ($io) {
         $io =~ s/\./\\\./g;
         $regexp .= '\s*' . $io;
     }
     
+    # Если есть уже регистрация, мы её сначала удалим
     if (redis($chat->{id}, hexists => uname  => $chat->{id})) {
         cmd_unreg($chat) || return;
     }
     
+    # Регистрируемся в базе пользователей
     redis($chat->{id}, hset => uname  => $chat->{id} => $full) || return;
     redis($chat->{id}, hset => uregexp=> $chat->{id} => $regexp) || return;
     
+    # Ответ пользователю об успехе
     reply($chat->{id}, 'im_ok', $name[0]);
     
     1;
 }
 
+# Отмена регистрации в системе
 sub cmd_unreg {
     my ($chat) = @_;
     
     my $name = redis($chat->{id}, hget => uname  => $chat->{id});
     
+    # Если нет регистрации в этом чате, то надо об этом сообщить
     if (!defined($name)) {
         reply($chat->{id}, 'unreg_noexists');
         return;
     }
     
+    # Удаляем из базы пользователей
     redis($chat->{id}, hdel => uregexp=> $chat->{id}) || return;
     redis($chat->{id}, hdel => uname  => $chat->{id}) || return;
     
+    # Ответ пользователю об успехе
     reply($chat->{id}, 'unreg_ok', $name);
     
     1;
+}
+
+# Получение информации о взлётах
+sub cmd_inf {
+    my ($chat) = @_;
+    
+    my $name = redis($chat->{id}, hget => uname  => $chat->{id});
+    
+    # Если нет регистрации в этом чате, то надо об этом сообщить
+    if (!defined($name)) {
+        reply($chat->{id}, 'inf_noexists');
+        return;
+    }
+    
+    # Нам нужна регулярка, по которой мы будем искать себя во взлётах
+    my $regexp = redis($chat->{id}, hget => uregexp  => $chat->{id});
+    if (!$regexp) {
+        reply($chat->{id}, 'db');
+        return;
+    }
+    
+    # Получаем список взлётов
+    my $memd = Cache::Memcached::Fast->new( c('MemCached') );
+    if (!$memd) {
+        reply($chat->{id}, 'db');
+        return;
+    }
+    
+    my $fprev = $memd->get('flyday');
+    if ((ref($fprev) ne 'HASH') || (ref($fprev->{flylist}) ne 'ARRAY')) {
+        reply($chat->{id}, 'inf_flynull');
+        return;
+    }
+    
+    # Перебираем список взлётов
+    my (@flytoff, @flywait, @flyover);
+    # Поле state (взято из flyinf->fstate()):
+    # H - скрытый взлёт (иногда так помечают давно улетевший)
+    # q - в очереди
+    # b - взлёт, которому дана готовность
+    # f - недавно улетевший (ещё летающий)
+    # h - давно улетевший (выполненный взлёт)
+    foreach my $fly (@{ $fprev->{flylist} }) {
+        # Смотрим, есть ли мы в этом взлёте
+        my @pers =
+            grep { $_->{name} =~ /^$regexp$/i }
+            @{ $fly->{pers} };
+        @pers || next;
+        
+        # Определяем состояние этого взлёта
+        flyinf->fstate($fly);
+        flyinf->fsheet($fly);
+        my $list =
+            $fly->{state} eq 't' ?
+                \@flytoff :
+            ($fly->{state} eq 'q') || ($fly->{state} eq 'b') ?
+                \@flywait :
+                \@flyover;
+        
+        push @$list, map { { fly => $fly, pers => $_ } } @pers;
+    }
+    
+    # Формируем ответ
+    my @reply = ();
+    
+    # Только что улетевшие взлёты
+    push @reply,
+        map {
+            my $fly = $_->{fly};
+            sprintf(c(telegram_reply => 'inf_flytoff'),
+                $fly->{name},
+                $fly->{sheet}->{name},
+                $fly->{closed_recently} / 60
+            );
+        }
+        @flytoff;
+
+    # Планируемые взлёты
+    push(@reply, '') if @reply && @flywait;
+    push @reply,
+        map {
+            my $fly = $_->{fly};
+            $fly->{state} eq 'b' ?
+                # взлёт в готовности
+                sprintf(c(telegram_reply => 'inf_flybefore'),
+                    $fly->{name},
+                    $fly->{sheet}->{name},
+                    $fly->{before} / 60
+                ) :
+                # взлёт в очереди
+                sprintf(c(telegram_reply => 'inf_flyqueue'),
+                    $fly->{name},
+                    $fly->{sheet}->{name},
+                    $_->{pers}->{visota}
+                );
+        }
+        @flywait;
+    
+    # Если нас нет в планируемых и только что улетевших взлётах,
+    # на это своё сообщение
+    if (!@reply) {
+        push @reply, c(telegram_reply => 'inf_flynoqueue');
+    }
+    
+    # Давно улетевшие взлёты - списком с заголовком
+    if (@flyover) {
+        push @reply,
+            '',
+            c(telegram_reply => 'inf_oldhead'),
+            map {
+                my $fly = $_->{fly};
+                sprintf(c(telegram_reply => 'inf_flyitem'),
+                    $fly->{name},
+                    $fly->{sheet}->{name},
+                    $_->{pers}->{visota}
+                );
+            }
+            @flyover;
+    }
+    
+    # Сумма задолженности
+    my $summ = 0;
+    foreach (@flywait, @flytoff, @flyover) {
+        my $p = $_->{pers};
+        next if $p->{code} !~ /^долг\s*(\d+)$/i;
+        $summ += $1;
+    }
+    push @reply,
+        '',
+        $summ > 0 ?
+            sprintf(c(telegram_reply => 'inf_paysumm'), $summ) :
+            c(telegram_reply => 'inf_nopay');
+    
+    # Отвечаем в чат
+    return reply($chat->{id}, join("\n", @reply));
 }
 
 ##==========================================================

@@ -122,6 +122,16 @@
     ln -s /etc/rc.d /rc.d
     /rc.d/sshd reload
 
+Правим локальный timezonê:
+
+    tzsetup
+
+Отвечаем:
+
+    Is this machine's CMOS clock set to UTC?
+    
+    No -> Europe -> Russian Federation -> Moscow
+
 ## Обновление безопасности ОС
 
     # freebsd-update fetch
