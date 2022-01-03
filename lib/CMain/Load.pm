@@ -3,6 +3,7 @@ package CMain::Load;
 use Clib::strict8;
 
 use xls2fly;
+use flyinf;
 
 use Cache::Memcached::Fast;
 use JSON::XS;
@@ -48,28 +49,31 @@ sub _root :
     # Дополнительные данные
     xls2fly->adding_data(@$flylist);
     
-    # Получаем предыдущий список
+    # Временная БД
     my $memd = Cache::Memcached::Fast->new( c('MemCached') )
         || return rerr('Memcached init');
     
+    # Получаем предыдущий список
     my $fprev = $memd->get('flyday');
+    # Проверяем валидность предыдущих данных
     if (
         # лююые изменения в документе будем проверять не только в случае
         # наличия предыдущей версии,
-        (ref($fprev) eq 'HASH') && (ref($fprev->{flylist}) eq 'ARRAY') &&
+        (ref($fprev) ne 'HASH') || (ref($fprev->{flylist}) ne 'ARRAY') ||
         # но и при изменении $srcname,
         # т.к. если мы парсим совсем другой файл,
         # то получим кучу кривых "изменений", которых на самом деле нет
-        $srcname && ($srcname eq $fprev->{srcname})
+        !$srcname || ($srcname ne $fprev->{srcname})
         ) {
-        # Дополнительные параметры, основанные на разнице от прошлой загрузки
+        # Если проверку не прошли
+        undef $fprev;
+    }
+    
+    # Дополнительные параметры, основанные на разнице от прошлой загрузки
+    # Это операцию необходимо выполнить до сохранения в MemCached,
+    # т.к. это всё ещё формирование исходных данных (с учётом предыдущих сохранений)
+    if ($fprev) {
         xls2fly->by_prev($flylist, $fprev->{flylist});
-        
-        # Вычисляем изменеия и сообщаем о необходимости оповестить
-        if (!$p->bool('nosave')) {
-            my @log = xls2fly->pers2log($flylist, $fprev->{flylist});
-            #dumper log => \@log;
-        }
     }
     
     # Сохраняем
@@ -86,6 +90,14 @@ sub _root :
             3600
         ) || return rerr('Memcached write');
     }
+
+        
+    # Оповещение об изменениях во взлётах
+    # Вычисляем изменения и сообщаем о необходимости оповестить
+    if ($fprev && !$p->bool('nosave')) {
+        my @log = flyinf->pers2log($flylist, $fprev->{flylist});
+        send_messages(@log) if @log;
+    }
     
     my @opt = ();
     # доп. опции, которые запрашивает клиентская программа,
@@ -93,7 +105,7 @@ sub _root :
     # Мы их будем выводить в json-формате построчно после OK.
     foreach my $ol ($p->allstr('opt')) {
         foreach my $o (split(/\s*,\s*/, $ol)) {
-            my $v = xls2fly->view($o)
+            my $v = flyinf->view($o)
                 || return rerr('Unknown required opt: %s', $o);
             
             my $r = $v->(@$flylist)
@@ -108,6 +120,28 @@ sub _root :
     }
     
     return OK => @opt;
+}
+
+sub send_messages {
+    @_ || return;
+    my $log = 
+        eval { JSON::XS->new->utf8->pretty(0)->canonical->encode([ @_ ]) };
+    $log || return;
+    
+    foreach my $type (qw/telegram/) {
+        my $cmd = Clib::Proc::ROOT().'/bin/notify.'.$type;
+        my $fh;
+        if (!open($fh, "|$cmd")) {
+            error('Can\'t exec \'%s\': %s', $cmd, $!);
+            next;
+        }
+        print $fh $log;
+        close $fh;
+        
+        debug('sended by %s - %d messages', $type, scalar(@_));
+    }
+    
+    1;
 }
 
 sub form :
