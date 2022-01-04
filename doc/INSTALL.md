@@ -147,6 +147,7 @@
     pkg install nginx memcached redis git-lite mpd5 \
         p5-Module-Find p5-Archive-Zip p5-OLE-Storage_Lite p5-XML-LibXML \
         p5-Cache-Memcached-Fast p5-JSON-XS \
+        p5-WWW-Telegram-BotAPI \
         p5-FCGI p5-FCGI-ProcManager
 
 Соглашаемся везде: `y` и `enter`
