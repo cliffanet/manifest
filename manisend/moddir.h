@@ -15,7 +15,6 @@ typedef enum {
 } CSelMode;
 
 typedef struct c_dir_item {
-    int n = 0;
     QString fname;
     QDate date;
     bool isNow;

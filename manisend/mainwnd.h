@@ -6,6 +6,7 @@
 #include <QSettings>
 #include <QItemSelection>
 #include <QTimer>
+#include <QDir>
 #include "moddir.h"
 #include "modspecsumm.h"
 #include "modflyers.h"
@@ -43,6 +44,7 @@ private:
     void initFlyers();
     void initStatusBar();
     void updateLabDir();
+    void parseDir(QDir &dir, QString subpath = "");
     void refreshDir();
     void forceSelectFile(int i);
     void chkSelFile();

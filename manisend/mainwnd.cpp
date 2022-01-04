@@ -220,6 +220,52 @@ void MainWnd::updateLabDir()
     ui->labFLoadDir->setText(dir);
 }
 
+void MainWnd::parseDir(QDir &dir, QString subpath)
+{
+    // Смотрим найденные имена файлов
+    foreach (QString fname, dir.entryList()) {
+        if (fname.at(0) == '.')
+            continue;
+
+        QString fullname = dir.path() + QDir::separator() + fname;
+
+        QFileInfo finf(fullname);
+        if (finf.isSymLink())
+            continue;
+        if (finf.isDir()) {
+            QDir subdir(fullname);
+            parseDir(subdir, subpath + fname + QDir::separator());
+            continue;
+        }
+
+        QRegularExpression rx(REGEXP_XLSX);
+        auto m = rx.match(fname);
+
+        if (!m.hasMatch())
+            continue;
+
+        QStringList cap = m.capturedTexts();
+
+        CDirItem di;
+        di.fname = subpath + fname;
+        di.sel = SEL_NONE;
+
+        di.date = QDate(cap[3].toUInt()+2000, cap[2].toUInt(), cap[1].toUInt());
+        di.isNow =
+            di.date.isValid() &&
+            (di.date == QDate::currentDate());
+
+        if (di.isNow && selFile.isEmpty()) {
+            di.sel = SEL_AUTO;
+            selFile = fullname;
+            // Имя файла в statusbar
+            labSelFile->setText(fname);
+        }
+
+        dirs.append(di);
+    }
+}
+
 // Перечтение текущей папки с файлами
 void MainWnd::refreshDir()
 {
@@ -250,36 +296,8 @@ void MainWnd::refreshDir()
         return;
     }
 
-    // Смотрим найденные имена файлов
-    int n = 0;
-    foreach (QString fname, dir.entryList()) {
-        QRegularExpression rx(REGEXP_XLSX);
-        auto m = rx.match(fname);
-
-        if (!m.hasMatch())
-            continue;
-
-        QStringList cap = m.capturedTexts();
-
-        CDirItem di;
-        di.n = ++n;
-        di.fname = fname;
-        di.sel = SEL_NONE;
-
-        di.date = QDate(cap[3].toUInt()+2000, cap[2].toUInt(), cap[1].toUInt());
-        di.isNow =
-            di.date.isValid() &&
-            (di.date == QDate::currentDate());
-
-        if (di.isNow && selFile.isEmpty()) {
-            di.sel = SEL_AUTO;
-            selFile = sdir + QDir::separator() + fname;
-            // Имя файла в statusbar
-            labSelFile->setText(fname);
-        }
-
-        dirs.append(di);
-    }
+    // парсим выбранную диру
+    parseDir(dir);
 
     // Обновляем отображение в таблице
     ui->twFLoadFiles->setSortingEnabled(false);
@@ -463,7 +481,7 @@ bool MainWnd::sendSelFile()
     ui->btnFLoadSend->setEnabled(false);
 
     // статус отправки в statusbar
-    labState->setText("Отправка файла...");
+    labState->setText("Отправка файла по адресу: " + surl);
 
     return true;
 }
