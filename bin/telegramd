@@ -212,7 +212,7 @@ sub cmd_im {
     # проверка формата указанного имени
     my @name;
     if (!defined($name) ||
-        !(@name = ($name =~ /^\s*(([a-zA-Zа-яА-Я]+)(?:\s*([a-zA-Zа-яА-Я]\.(?:[a-zA-Zа-яА-Я]\.)?))?)\s*$/))) {
+        !(@name = ($name =~ /^\s*(([a-zA-Zа-яА-ЯёЁ]+)(?:\s*([a-zA-Zа-яА-ЯёЁ]\.(?:[a-zA-Zа-яА-ЯёЁ]\.)?))?)\s*$/))) {
         reply($chat->{id}, 'im_format');
         return;
     }
