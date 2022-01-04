@@ -11,6 +11,7 @@
 #include "modflyers.h"
 
 class QNetworkReply;
+class QNetworkAccessManager;
 class QLabel;
 class QJsonArray;
 
@@ -69,5 +70,7 @@ private:
 
     QLabel* labSelFile;
     QLabel* labState;
+
+    QNetworkAccessManager *httpManager;
 };
 #endif // MAINWND_H

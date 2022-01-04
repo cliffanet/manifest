@@ -21,6 +21,10 @@ MainWnd::MainWnd(QWidget *parent)
 
     this->setWindowTitle(tr("Манифест - отслеживание взлётов"));
 
+    // http-запросы
+    httpManager = new QNetworkAccessManager(this);
+    connect(httpManager, &QNetworkAccessManager::finished, this, &MainWnd::sendDone);
+
     createTrayIcon();
     trayIcon->show();
 
@@ -452,12 +456,8 @@ bool MainWnd::sendSelFile()
     QUrl url(surl);
     QNetworkRequest request(url);
 
-    QNetworkAccessManager *manager = new QNetworkAccessManager(this);
-    QNetworkReply *reply = manager->post(request, multiPart);
+    QNetworkReply *reply = httpManager->post(request, multiPart);
     multiPart->setParent(reply); // delete the multiPart with the reply
-    manager->setParent(reply); // delete the manager with the reply
-
-    connect(manager, &QNetworkAccessManager::finished, this, &MainWnd::sendDone);
 
     // enabled для кнопки "отправка"
     ui->btnFLoadSend->setEnabled(false);
@@ -476,44 +476,45 @@ void MainWnd::sendDone(QNetworkReply *reply)
 
     // Теперь отрисовываем статус операции
     QVariant vstat = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute);
-    if (!vstat.isValid() || (vstat.toUInt() != 200)) {
+    if (vstat.isValid() && (vstat.toUInt() == 200)) {
+        QString st = reply->readLine().trimmed();
+
+        // успешное завершение отправки файла
+        if (st == "OK") {
+            // время успешной отправки
+            // Оно нам пригодится, если очень долго не будет изменений
+            dtSelFileSended = QDateTime::currentDateTime();
+
+            // доп опции, которые мы запрашивали
+            specsumm.clear();
+            flyers.clear();
+            while (!reply->atEnd())
+                replyOpt(reply->readLine().trimmed());
+
+            // Запускаем обратно таймер проверки текущего файла
+            // только в случае успешной отправки,
+            // а в случае любой ошибки будет повторная отправка через 3 минуты
+            if (!selFile.isEmpty())
+                tmrSendSelFile->start(1000);
+
+            // статус отправки в statusbar
+            labState->setText("Успешно отправлен в " + dtSelFileSended.toString("hh:mm"));
+
+            // Сообщение
+            popupMessage("Успешно загружено");
+        }
+        else
+        if ((st.length() >= 6) && (st.left(6) == "ERROR ")) {
+            sendError(st.right(st.length()-6));
+        }
+    }
+    else {
+        // status != 200
         sendError("Статус HTTP-запроса = " + (vstat.isValid() ? vstat.toString() : "-неизвестно-"));
-        return;
-    }
-    QString st = reply->readLine().trimmed();
-
-    // успешное завершение отправки файла
-    if (st == "OK") {
-        // время успешной отправки
-        // Оно нам пригодится, если очень долго не будет изменений
-        dtSelFileSended = QDateTime::currentDateTime();
-
-        // доп опции, которые мы запрашивали
-        specsumm.clear();
-        flyers.clear();
-        while (!reply->atEnd())
-            replyOpt(reply->readLine().trimmed());
-
-        // Запускаем обратно таймер проверки текущего файла
-        // только в случае успешной отправки,
-        // а в случае любой ошибки будет повторная отправка через 3 минуты
-        if (!selFile.isEmpty())
-            tmrSendSelFile->start(1000);
-
-        // статус отправки в statusbar
-        labState->setText("Успешно отправлен в " + dtSelFileSended.toString("hh:mm"));
-
-        // Сообщение
-        popupMessage("Успешно загружено");
-        return;
     }
 
-    if ((st.length() >= 6) && (st.left(6) == "ERROR ")) {
-        sendError(st.right(st.length()-6));
-        return;
-    }
-
-    sendError("Неизвестная проблема при загрузке файла");
+    // Удалим reply, когда управление вернётся в event-loop
+    reply->deleteLater();
 }
 
 void MainWnd::replyOpt(const QString &str)
