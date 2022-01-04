@@ -146,7 +146,8 @@
 
     pkg install nginx memcached redis git-lite mpd5 \
         p5-Module-Find p5-Archive-Zip p5-OLE-Storage_Lite p5-XML-LibXML \
-        p5-Cache-Memcached-Fast p5-JSON-XS \
+        p5-Cache-Memcached-Fast p5-RedisDB p5-JSON-XS \
+        p5-WWW-Telegram-BotAPI \
         p5-FCGI p5-FCGI-ProcManager
 
 Соглашаемся везде: `y` и `enter`
@@ -160,6 +161,7 @@
     
     mkdir /home/manifest.tmp
     mkdir /home/redis
+    chown redis:redis /home/redis
 
 ### /etc/crontab
 
@@ -204,7 +206,7 @@
     
     nginx_enable="YES"
     manifest_main_enable="YES"
-    manifest_telegramd="YES"
+    manifest_telegramd_enable="YES"
 
 ### /usr/local/etc/nginx/nginx.conf
 
