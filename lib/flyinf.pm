@@ -46,7 +46,7 @@ sub fstate {
     
     my $time = time();
     $fly->{$_} = 0 foreach qw/hidden closed closed_recently/;
-    if ($fly->{meta} =~ /\-/) {
+    if ($fly->{meta} =~ /[\-x]/) {
         # скрытый взлёт
         $fly->{hidden} = 1;
     }
@@ -79,12 +79,16 @@ sub fstate {
     }
     
     # Поле state:
+    # P - подъём с начинающими - он не мониторится и не выводится в статистику
     # H - скрытый взлёт
     # q - в очереди
     # b - взлёт, которому дана готовность
     # f - недавно улетевший (ещё летающий)
     # h - давно улетевший (выполненный взлёт)
-    if ($fly->{hidden}) {
+    if ($fly->{meta} =~ /x/) {
+        $fly->{state} = 'P';
+    }
+    elsif ($fly->{hidden}) {
         $fly->{state} = 'H';
     }
     elsif (my $before = $fly->{before}) {
@@ -150,6 +154,7 @@ sub _view_specsumm {
 sub _view_flyers {
     my %pers = ();
     foreach my $fly (@_) {
+        next if $fly->{meta} eq 'x'; # отфильтровываем начинающих
         my ($sheet) = grep { $_->{id} eq $fly->{sheetid} } @{ c('flySheet') || [] };
         my $flyname = ($sheet||{})->{name} . ': ' . $fly->{name};
         

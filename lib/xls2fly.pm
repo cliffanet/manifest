@@ -326,7 +326,7 @@ sub adding_data {
     foreach my $fly (@_) {
         my ($flySheet) = grep { $_->{id} eq $fly->{sheetid} } @{ c('flySheet') || [] };
         
-        $fly->{meta} = '-' if $fly->{name} =~ /подъем/;
+        $fly->{meta} = 'x' if $fly->{name} =~ /подъем/;
         
         #
         # Персоны
