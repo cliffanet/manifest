@@ -161,6 +161,7 @@
     
     mkdir /home/manifest.tmp
     mkdir /home/redis
+    chown redis:redis /home/redis
 
 ### /etc/crontab
 
