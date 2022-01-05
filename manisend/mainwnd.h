@@ -59,7 +59,6 @@ private:
     void sendDone(QNetworkReply *reply);
     void replyOpt(const QString &str);
     void replySpecSumm(const QJsonArray *list);
-    void replyFlyers(const QJsonArray *list);
 
     InfoWnd info;
 
@@ -71,8 +70,8 @@ private:
     QString selFile;
     QDateTime dtSelFileModif;
     QDateTime dtSelFileSended;
-    CSpecList specsumm;
-    CPersList flyers;
+    ModSpecSumm *specsumm;
+    ModFlyers *flyers;
 
     QTimer *tmrRefreshDir;
     QTimer *tmrSendSelFile;

@@ -171,7 +171,8 @@ void MainWnd::initFLoadFiles()
 
 void MainWnd::initSpecSumm()
 {
-    ui->twSpecSumm->setModel(new ModSpecSumm(specsumm, this));
+    specsumm = new ModSpecSumm(this);
+    ui->twSpecSumm->setModel(specsumm);
     ui->twSpecSumm->setColumnWidth(0,160);
     ui->twSpecSumm->setColumnWidth(1,70);
     ui->twSpecSumm->setColumnWidth(2,70);
@@ -189,7 +190,8 @@ void MainWnd::initSpecSumm()
 
 void MainWnd::initFlyers()
 {
-    ui->twFlyers->setModel(new ModFlyers(flyers, this));
+    flyers = new ModFlyers(this);
+    ui->twFlyers->setModel(flyers);
     ui->twFlyers->setColumnWidth(0,160);
     ui->twFlyers->setColumnWidth(1,70);
     ui->twFlyers->setColumnWidth(2,70);
@@ -515,6 +517,11 @@ void MainWnd::sendDone(QNetworkReply *reply)
     // enabled для кнопки "отправка"
     ui->btnFLoadSend->setEnabled(!selFile.isEmpty());
 
+    // доп опции, которые мы запрашивали
+    specsumm->clear();
+    flyers->clear();
+    info.finfo->clear();
+
     // Теперь отрисовываем статус операции
     QVariant vstat = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute);
     if (vstat.isValid() && (vstat.toUInt() == 200)) {
@@ -526,9 +533,6 @@ void MainWnd::sendDone(QNetworkReply *reply)
             // Оно нам пригодится, если очень долго не будет изменений
             dtSelFileSended = QDateTime::currentDateTime();
 
-            // доп опции, которые мы запрашивали
-            specsumm.clear();
-            flyers.clear();
             while (!reply->atEnd())
                 replyOpt(reply->readLine().trimmed());
 
@@ -570,58 +574,20 @@ void MainWnd::replyOpt(const QString &str)
 
     if (opt == "SPECSUMM") {
         QJsonArray list = loadDoc.array();
-        replySpecSumm(&list);
+        ui->twSpecSumm->setSortingEnabled(false);
+        specsumm->parseJson(&list);
+        ui->twSpecSumm->setSortingEnabled(true);
     }
     else
     if (opt == "FLYERS") {
         QJsonArray list = loadDoc.array();
-        replyFlyers(&list);
+        ui->twFlyers->setSortingEnabled(false);
+        flyers->parseJson(&list);
+        ui->twFlyers->setSortingEnabled(true);
     }
     else
     if (opt == "FLYINFO") {
         QJsonArray list = loadDoc.array();
         info.finfo->parseJson(&list);
     }
-}
-
-void MainWnd::replySpecSumm(const QJsonArray *list)
-{
-    specsumm.clear();
-    for (const auto &item : *list) {
-        const auto row = item.toObject();
-        CSpecItem s = {
-            .name   = row["name"].toString(),
-            .code   = row["code"].toString(),
-            .flycnt = row["flycnt"].toInt(),
-            .perscnt= row["perscnt"].toInt(),
-            .fly    = row["fly"].toString(),
-        };
-        specsumm.push_back(s);
-    }
-
-    // Обновляем отображение в таблице
-    ui->twSpecSumm->setSortingEnabled(false);
-    emit ui->twSpecSumm->model()->layoutChanged();
-    ui->twSpecSumm->setSortingEnabled(true);
-}
-
-void MainWnd::replyFlyers(const QJsonArray *list)
-{
-    flyers.clear();
-    for (const auto &item : *list) {
-        const auto row = item.toObject();
-        CPersItem p = {
-            .name   = row["name"].toString(),
-            .code   = row["code"].toString(),
-            .flycnt = row["flycnt"].toInt(),
-            .summ   = row["summ"].toInt(),
-            .fly    = row["fly"].toString(),
-        };
-        flyers.push_back(p);
-    }
-
-    // Обновляем отображение в таблице
-    ui->twFlyers->setSortingEnabled(false);
-    emit ui->twFlyers->model()->layoutChanged();
-    ui->twFlyers->setSortingEnabled(true);
 }

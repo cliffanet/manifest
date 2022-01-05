@@ -5,6 +5,8 @@
 #include <QString>
 #include <QList>
 
+class QJsonArray;
+
 typedef struct c_spec_item {
     QString name;
     QString code;
@@ -20,7 +22,7 @@ class ModSpecSumm: public QAbstractTableModel
     Q_OBJECT
 
 public:
-    ModSpecSumm(CSpecList &_list, QObject *parent = nullptr);
+    ModSpecSumm(QObject *parent = nullptr);
     int rowCount(const QModelIndex &parent = QModelIndex()) const override;
     int columnCount(const QModelIndex &parent = QModelIndex()) const override;
     QVariant headerData(int section, Qt::Orientation orientation, int role) const override;
@@ -28,8 +30,11 @@ public:
     Qt::ItemFlags flags(const QModelIndex &index) const override;
     void sort(int column, Qt::SortOrder order) override;
 
+    void clear();
+    void parseJson(const QJsonArray *_list);
+
 private:
-    CSpecList *list;  //holds text entered into QTableView
+    CSpecList list;  //holds text entered into QTableView
 
 };
 

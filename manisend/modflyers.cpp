@@ -1,17 +1,18 @@
-#include "ModFlyers.h"
+#include "modflyers.h"
 
 #include <QFont>
+#include <QJsonArray>
+#include <QJsonObject>
 
-ModFlyers::ModFlyers(CPersList &_list, QObject *parent)
-    : QAbstractTableModel(parent),
-      list(&_list)
+ModFlyers::ModFlyers(QObject *parent)
+    : QAbstractTableModel(parent)
 {
 
 }
 
 int ModFlyers::rowCount(const QModelIndex & /*parent*/) const
 {
-   return list->size();
+   return list.size();
 }
 
 int ModFlyers::columnCount(const QModelIndex & /*parent*/) const
@@ -38,7 +39,7 @@ QVariant ModFlyers::data(const QModelIndex &index, int role) const
     switch (role) {
         case Qt::DisplayRole:
             {
-                auto &p = (*list)[index.row()];
+                auto &p = list[index.row()];
                 switch (index.column()) {
                     case 0: return p.name;
                     case 1: return p.code;
@@ -72,31 +73,56 @@ void ModFlyers::sort(int column, Qt::SortOrder order)
 
     switch (column) {
         case 0:
-            std::sort(list->begin(), list->end(),
+            std::sort(list.begin(), list.end(),
                 [asc] (const CPersItem &p1, const CPersItem &p2) { return asc ? p2.name > p1.name : p1.name > p2.name; }
             );
             break;
         case 1:
-            std::sort(list->begin(), list->end(),
+            std::sort(list.begin(), list.end(),
                 [asc] (const CPersItem &p1, const CPersItem &p2) { return asc ? p2.code > p1.code : p1.code > p2.code; }
             );
             break;
         case 2:
-            std::sort(list->begin(), list->end(),
+            std::sort(list.begin(), list.end(),
                 [asc] (const CPersItem &p1, const CPersItem &p2) { return asc ? p2.flycnt > p1.flycnt : p1.flycnt > p2.flycnt; }
             );
             break;
         case 3:
-            std::sort(list->begin(), list->end(),
+            std::sort(list.begin(), list.end(),
                 [asc] (const CPersItem &p1, const CPersItem &p2) { return asc ? p2.summ > p1.summ : p1.summ > p2.summ; }
             );
             break;
         case 4:
-            std::sort(list->begin(), list->end(),
+            std::sort(list.begin(), list.end(),
                 [asc] (const CPersItem &p1, const CPersItem &p2) { return asc ? p2.fly > p1.fly : p1.fly > p2.fly; }
             );
             break;
     }
 
+    emit layoutChanged();
+}
+
+void ModFlyers::clear()
+{
+    list.clear();
+    emit layoutChanged();
+}
+
+void ModFlyers::parseJson(const QJsonArray *_list)
+{
+    list.clear();
+    for (const auto &item : *_list) {
+        const auto row = item.toObject();
+        CPersItem p = {
+            .name   = row["name"].toString(),
+            .code   = row["code"].toString(),
+            .flycnt = row["flycnt"].toInt(),
+            .summ   = row["summ"].toInt(),
+            .fly    = row["fly"].toString(),
+        };
+        list.push_back(p);
+    }
+
+    // Обновляем отображение в таблице
     emit layoutChanged();
 }

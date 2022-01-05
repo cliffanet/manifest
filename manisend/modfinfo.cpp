@@ -75,6 +75,12 @@ Qt::ItemFlags ModFInfo::flags(const QModelIndex &index) const
     return QAbstractTableModel::flags(index) & ~(Qt::ItemIsEditable);
 }
 
+void ModFInfo::clear()
+{
+    list.clear();
+    emit layoutChanged();
+}
+
 void ModFInfo::parseJson(const QJsonArray *_list)
 {
     list.clear();

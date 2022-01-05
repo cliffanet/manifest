@@ -1,17 +1,18 @@
-#include "ModSpecSumm.h"
+#include "modspecsumm.h"
 
 #include <QFont>
+#include <QJsonArray>
+#include <QJsonObject>
 
-ModSpecSumm::ModSpecSumm(CSpecList &_list, QObject *parent)
-    : QAbstractTableModel(parent),
-      list(&_list)
+ModSpecSumm::ModSpecSumm(QObject *parent)
+    : QAbstractTableModel(parent)
 {
 
 }
 
 int ModSpecSumm::rowCount(const QModelIndex & /*parent*/) const
 {
-   return list->size();
+   return list.size();
 }
 
 int ModSpecSumm::columnCount(const QModelIndex & /*parent*/) const
@@ -38,7 +39,7 @@ QVariant ModSpecSumm::data(const QModelIndex &index, int role) const
     switch (role) {
         case Qt::DisplayRole:
             {
-                auto &p = (*list)[index.row()];
+                auto &p = list[index.row()];
                 switch (index.column()) {
                     case 0: return p.name;
                     case 1: return p.code;
@@ -71,31 +72,56 @@ void ModSpecSumm::sort(int column, Qt::SortOrder order)
 
     switch (column) {
         case 0:
-            std::sort(list->begin(), list->end(),
+            std::sort(list.begin(), list.end(),
                 [asc] (const CSpecItem &p1, const CSpecItem &p2) { return asc ? p2.name > p1.name : p1.name > p2.name; }
             );
             break;
         case 1:
-            std::sort(list->begin(), list->end(),
+            std::sort(list.begin(), list.end(),
                 [asc] (const CSpecItem &p1, const CSpecItem &p2) { return asc ? p2.code > p1.code : p1.code > p2.code; }
             );
             break;
         case 2:
-            std::sort(list->begin(), list->end(),
+            std::sort(list.begin(), list.end(),
                 [asc] (const CSpecItem &p1, const CSpecItem &p2) { return asc ? p2.flycnt > p1.flycnt : p1.flycnt > p2.flycnt; }
             );
             break;
         case 3:
-            std::sort(list->begin(), list->end(),
+            std::sort(list.begin(), list.end(),
                 [asc] (const CSpecItem &p1, const CSpecItem &p2) { return asc ? p2.perscnt > p1.perscnt : p1.perscnt > p2.perscnt; }
             );
             break;
         case 4:
-            std::sort(list->begin(), list->end(),
+            std::sort(list.begin(), list.end(),
                 [asc] (const CSpecItem &p1, const CSpecItem &p2) { return asc ? p2.fly > p1.fly : p1.fly > p2.fly; }
             );
             break;
     }
 
+    emit layoutChanged();
+}
+
+void ModSpecSumm::clear()
+{
+    list.clear();
+    emit layoutChanged();
+}
+
+void ModSpecSumm::parseJson(const QJsonArray *_list)
+{
+    list.clear();
+    for (const auto &item : *_list) {
+        const auto row = item.toObject();
+        CSpecItem s = {
+            .name   = row["name"].toString(),
+            .code   = row["code"].toString(),
+            .flycnt = row["flycnt"].toInt(),
+            .perscnt= row["perscnt"].toInt(),
+            .fly    = row["fly"].toString(),
+        };
+        list.push_back(s);
+    }
+
+    // Обновляем отображение в таблице
     emit layoutChanged();
 }
