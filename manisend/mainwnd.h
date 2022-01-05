@@ -10,11 +10,14 @@
 #include "moddir.h"
 #include "modspecsumm.h"
 #include "modflyers.h"
+#include "modflyers.h"
+#include "infownd.h"
 
 class QNetworkReply;
 class QNetworkAccessManager;
 class QLabel;
 class QJsonArray;
+class QAction;
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWnd; }
@@ -39,10 +42,12 @@ private:
 
     void createTrayIcon();
     void trayActivated(QSystemTrayIcon::ActivationReason r);
+    void trayMainToggle(bool checked);
     void initFLoadFiles();
     void initSpecSumm();
     void initFlyers();
     void initStatusBar();
+    bool event(QEvent *pEvent);
     void updateLabDir();
     void parseDir(QDir &dir, QString subpath = "");
     void refreshDir();
@@ -56,8 +61,11 @@ private:
     void replySpecSumm(const QJsonArray *list);
     void replyFlyers(const QJsonArray *list);
 
+    InfoWnd info;
+
     QSystemTrayIcon *trayIcon;
     QMenu *trayIconMenu;
+    QAction *actMain;
     QSettings sett;
     CDirList dirs;
     QString selFile;

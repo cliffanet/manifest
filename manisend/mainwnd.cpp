@@ -19,7 +19,7 @@ MainWnd::MainWnd(QWidget *parent)
 {
     ui->setupUi(this);
 
-    this->setWindowTitle(tr("Манифест - отслеживание взлётов"));
+    this->setWindowTitle(tr("Манифест"));
 
     // http-запросы
     httpManager = new QNetworkAccessManager(this);
@@ -90,22 +90,21 @@ void MainWnd::on_twFLoadFiles_doubleClicked(const QModelIndex &index)
 // Инициализация иконка в Tray
 void MainWnd::createTrayIcon()
 {
-    QAction *act;
-
     trayIconMenu = new QMenu(this);
 
-    act = new QAction(tr("Свернуть"), this);
-    connect(act, &QAction::triggered, this, &QMainWindow::hide);
-    trayIconMenu->addAction(act);
+    actMain = new QAction(tr("Главное окно"), this);
+    actMain->setCheckable(true);
+    connect(actMain, &QAction::toggled, this, &MainWnd::trayMainToggle);
+    trayIconMenu->addAction(actMain);
 
-    act = new QAction(tr("Открыть"), this);
-    connect(act, &QAction::triggered, this, &QMainWindow::showNormal);
-    connect(act, &QAction::triggered, this, &QMainWindow::raise);
-    trayIconMenu->addAction(act);
+    info.actInfo = new QAction(tr("Информация"), this);
+    info.actInfo->setCheckable(true);
+    connect(info.actInfo, &QAction::toggled, &info, &InfoWnd::trayInfoToggle);
+    trayIconMenu->addAction(info.actInfo);
 
     trayIconMenu->addSeparator();
 
-    act = new QAction(tr("Выход"), this);
+    QAction *act = new QAction(tr("Выход"), this);
     connect(act, &QAction::triggered, qApp, &QCoreApplication::quit);
     trayIconMenu->addAction(act);
 
@@ -119,13 +118,24 @@ void MainWnd::createTrayIcon()
 
 void MainWnd::trayActivated(QSystemTrayIcon::ActivationReason r)
 {
-    if (r == QSystemTrayIcon::Trigger) {
+    if (r == QSystemTrayIcon::DoubleClick) {
         if (!this->isVisible()) {
             this->show();
         }
         else {
             this->hide();
         }
+    }
+}
+
+void MainWnd::trayMainToggle(bool checked)
+{
+    if (checked) {
+        this->showNormal();
+        this->raise();
+    }
+    else {
+        this->hide();
     }
 }
 
@@ -203,6 +213,17 @@ void MainWnd::initStatusBar()
     labSelFile->setText("Файл не выбран");
     ui->statusbar->addPermanentWidget(labSelFile);
     ui->statusbar->addPermanentWidget(labState, 1);
+}
+
+bool MainWnd::event(QEvent *pEvent)
+{
+    if (pEvent->type() == QEvent::Show)
+        actMain->setChecked(true);
+    else
+    if (pEvent->type() == QEvent::Hide)
+        actMain->setChecked(false);
+
+    return QWidget::event(pEvent);
 }
 
 // Обновление label с выбранной папкой
@@ -461,6 +482,8 @@ bool MainWnd::sendSelFile()
     multiPart->append(partOpt);
     partOpt.setBody("flyers");
     multiPart->append(partOpt);
+    partOpt.setBody("flyinfo");
+    multiPart->append(partOpt);
 
     if (ui->chkNoSave->isChecked()) {
         QHttpPart partNoSave;
@@ -553,6 +576,11 @@ void MainWnd::replyOpt(const QString &str)
     if (opt == "FLYERS") {
         QJsonArray list = loadDoc.array();
         replyFlyers(&list);
+    }
+    else
+    if (opt == "FLYINFO") {
+        QJsonArray list = loadDoc.array();
+        info.finfo->parseJson(&list);
     }
 }
 

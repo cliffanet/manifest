@@ -9,19 +9,24 @@ CONFIG += c++11
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
 SOURCES += \
+    infownd.cpp \
     main.cpp \
     mainwnd.cpp \
     moddir.cpp \
+    modfinfo.cpp \
     modflyers.cpp \
     modspecsumm.cpp
 
 HEADERS += \
+    infownd.h \
     mainwnd.h \
     moddir.h \
+    modfinfo.h \
     modflyers.h \
     modspecsumm.h
 
 FORMS += \
+    infownd.ui \
     mainwnd.ui
 
 RESOURCES     = manisend.qrc

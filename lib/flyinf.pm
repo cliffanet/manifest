@@ -193,9 +193,30 @@ sub _view_flyers {
     return [@pers];
 }
 
+# Общая инфа по взлётам, которые видны на табло
+sub _view_flyinfo {
+    my @fly = ();
+    foreach (@_) {
+        # Пересобираем, чтобы не коцать оригинальные данные
+        my $fly = { %$_ };
+        # обработка поля meta
+        flyinf->fstate($fly);
+        next if $fly->{closed} || $fly->{hidden};
+
+        flyinf->fsheet($fly);
+        $fly->{perscnt} = @{ delete($fly->{pers}) || [] };
+        $fly->{speccnt} = @{ delete($fly->{spec}) || [] };
+        
+        push @fly, $fly;
+    }
+    
+    return [@fly];
+}
+
 my %view = (
     specsumm    => \&_view_specsumm,
     flyers      => \&_view_flyers,
+    flyinfo     => \&_view_flyinfo,
 );
 sub view {
     shift() if $_[0] && (($_[0] eq __PACKAGE__) || (ref($_[0]) eq __PACKAGE__));
