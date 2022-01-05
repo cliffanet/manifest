@@ -6,6 +6,8 @@
 #include <QList>
 #include <QDate>
 
+class QTimer;
+
 #define REGEXP_XLSX "^(\\d?\\d)[\\.\\s](\\d?\\d)[\\.\\s](\\d\\d)\\.[xX][lL][sS][xX]$"
 
 typedef enum {
@@ -28,7 +30,7 @@ class ModDir: public QAbstractTableModel
     Q_OBJECT
 
 public:
-    ModDir(CDirList &_dirs, QObject *parent = nullptr);
+    ModDir(QObject *parent = nullptr);
     int rowCount(const QModelIndex &parent = QModelIndex()) const override;
     int columnCount(const QModelIndex &parent = QModelIndex()) const override;
     QVariant headerData(int section, Qt::Orientation orientation, int role) const override;
@@ -36,9 +38,30 @@ public:
     Qt::ItemFlags flags(const QModelIndex &index) const override;
     void sort(int column, Qt::SortOrder order) override;
 
-private:
-    CDirList *dirs;  //holds text entered into QTableView
+    void clear();
+    bool start(const QString &_dir);
+    void stop();
+    void refresh();
+    bool selectForce(int _index);
 
+    bool autoFounded() { return _autoFound; }
+    const QString &selectedFName() { return selFName; }
+    QString selectedFullName();
+
+private:
+    CDirList list;  //holds text entered into QTableView
+    int sort_col = -1;
+    Qt::SortOrder sort_ord = Qt::AscendingOrder;
+    QString curDir;
+    bool _autoFound;
+    QString selFName;
+    QTimer *tmrRefresh;
+
+    void parseDir(const QString subpath);
+
+Q_SIGNALS:
+    void autoFound(const QString &fullname, const QString &fname);
+    void selected(const QString &fullname, const QString &fname);
 };
 
 #endif // MODDIR_H

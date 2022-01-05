@@ -35,7 +35,8 @@ public:
 
 private:
     CSpecList list;  //holds text entered into QTableView
-
+    int sort_col = -1;
+    Qt::SortOrder sort_ord = Qt::AscendingOrder;
 };
 
 #endif // MODSPECSUMM_H

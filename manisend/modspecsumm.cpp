@@ -69,6 +69,8 @@ Qt::ItemFlags ModSpecSumm::flags(const QModelIndex &index) const
 void ModSpecSumm::sort(int column, Qt::SortOrder order)
 {
     bool asc = order == Qt::AscendingOrder;
+    sort_col = column;
+    sort_ord = order;
 
     switch (column) {
         case 0:
@@ -122,6 +124,8 @@ void ModSpecSumm::parseJson(const QJsonArray *_list)
         list.push_back(s);
     }
 
+    if (sort_col >= 0)
+        sort(sort_col, sort_ord);
     // Обновляем отображение в таблице
     emit layoutChanged();
 }

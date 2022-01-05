@@ -16,7 +16,6 @@
 class QNetworkReply;
 class QNetworkAccessManager;
 class QLabel;
-class QJsonArray;
 class QAction;
 
 QT_BEGIN_NAMESPACE
@@ -48,17 +47,14 @@ private:
     void initFlyers();
     void initStatusBar();
     bool event(QEvent *pEvent);
-    void updateLabDir();
-    void parseDir(QDir &dir, QString subpath = "");
     void refreshDir();
-    void forceSelectFile(int i);
+    void fileSelect(const QString fullname, const QString fname);
     void chkSelFile();
     void popupMessage(const QString &txt, bool isErr = false);
     void sendError(const QString &txt);
     bool sendSelFile();
     void sendDone(QNetworkReply *reply);
     void replyOpt(const QString &str);
-    void replySpecSumm(const QJsonArray *list);
 
     InfoWnd info;
 
@@ -66,14 +62,13 @@ private:
     QMenu *trayIconMenu;
     QAction *actMain;
     QSettings sett;
-    CDirList dirs;
+    ModDir *dirs;
     QString selFile;
     QDateTime dtSelFileModif;
     QDateTime dtSelFileSended;
     ModSpecSumm *specsumm;
     ModFlyers *flyers;
 
-    QTimer *tmrRefreshDir;
     QTimer *tmrSendSelFile;
     QTimer *tmrReSendOnFail;
 

@@ -33,7 +33,6 @@ MainWnd::MainWnd(QWidget *parent)
     initFlyers();
     initStatusBar();
 
-    updateLabDir();
     refreshDir();
 }
 
@@ -76,7 +75,6 @@ void MainWnd::on_btnFLoadDir_clicked()
     // Сохраняем настройки
     sett.setValue("dir", dir);
     sett.sync();
-    updateLabDir();
     refreshDir();
 }
 
@@ -84,7 +82,7 @@ void MainWnd::on_btnFLoadDir_clicked()
 void MainWnd::on_twFLoadFiles_doubleClicked(const QModelIndex &index)
 {
     // По двойному клику принудительно выберем файл для отправки
-    forceSelectFile(index.row());
+    dirs->selectForce(index.row());
 }
 
 // Инициализация иконка в Tray
@@ -142,12 +140,17 @@ void MainWnd::trayMainToggle(bool checked)
 // инициализация отображения списка файлов
 void MainWnd::initFLoadFiles()
 {
-    ui->twFLoadFiles->setModel(new ModDir(dirs, this));
+    dirs = new ModDir(this);
+    ui->twFLoadFiles->setModel(dirs);
+
+    connect(dirs, &ModDir::selected, this, &MainWnd::fileSelect);
+
     ui->twFLoadFiles->setColumnWidth(0,70);
     ui->twFLoadFiles->setColumnWidth(1,120);
     //ui->twFLoadFiles->setColumnWidth(2,250);
 
     ui->twFLoadFiles->sortByColumn(1, Qt::DescendingOrder);
+    ui->twFLoadFiles->setSortingEnabled(true);
     //ui->twFLoadFiles->horizontalHeader()->setSectionResizeMode(QHeaderView::Fixed);
 
     QFont font = ui->twFLoadFiles->horizontalHeader()->font();
@@ -155,10 +158,6 @@ void MainWnd::initFLoadFiles()
     ui->twFLoadFiles->horizontalHeader()->setFont( font );
     ui->twFLoadFiles->horizontalHeader()->setDefaultAlignment(Qt::AlignCenter | (Qt::Alignment)Qt::TextWordWrap);
     //ui->twFLoadFiles->horizontalHeader()->setFixedHeight(ui->twFLoadFiles->horizontalHeader()->height()*2);
-
-    // Таймер для автообновления папки, если не смогли авто-найти текущий файл
-    tmrRefreshDir = new QTimer(this);
-    connect(tmrRefreshDir, &QTimer::timeout, this, &MainWnd::refreshDir);
 
     // Таймер для проверки изменений в файле для отправки на сервер
     tmrSendSelFile = new QTimer(this);
@@ -178,8 +177,8 @@ void MainWnd::initSpecSumm()
     ui->twSpecSumm->setColumnWidth(2,70);
     ui->twSpecSumm->setColumnWidth(3,70);
 
-    ui->twSpecSumm->sortByColumn(1, Qt::AscendingOrder);
     ui->twSpecSumm->sortByColumn(0, Qt::AscendingOrder);
+    ui->twSpecSumm->setSortingEnabled(true);
     //ui->twSpecSumm->horizontalHeader()->setSectionResizeMode(QHeaderView::Fixed);
 
     QFont font = ui->twSpecSumm->horizontalHeader()->font();
@@ -197,8 +196,8 @@ void MainWnd::initFlyers()
     ui->twFlyers->setColumnWidth(2,70);
     ui->twFlyers->setColumnWidth(3,70);
 
-    ui->twFlyers->sortByColumn(1, Qt::AscendingOrder);
     ui->twFlyers->sortByColumn(0, Qt::AscendingOrder);
+    ui->twFlyers->setSortingEnabled(true);
     //ui->twFlyers->horizontalHeader()->setSectionResizeMode(QHeaderView::Fixed);
 
     QFont font = ui->twFlyers->horizontalHeader()->font();
@@ -228,83 +227,20 @@ bool MainWnd::event(QEvent *pEvent)
     return QWidget::event(pEvent);
 }
 
-// Обновление label с выбранной папкой
-void MainWnd::updateLabDir()
-{
-    QVariant vdir = sett.value("dir");
-    if (!vdir.isValid()) {
-        ui->labFLoadDir->setText("[не выбрана]");
-        return;
-    }
-
-    QString dir = vdir.toString();
-    if (!QDir(dir).exists())
-        dir = QString("[не существует] ") + dir;
-    ui->labFLoadDir->setText(dir);
-}
-
-void MainWnd::parseDir(QDir &dir, QString subpath)
-{
-    // Смотрим найденные имена файлов
-    foreach (QString fname, dir.entryList()) {
-        if (fname.at(0) == '.')
-            continue;
-
-        QString fullname = dir.path() + QDir::separator() + fname;
-
-        QFileInfo finf(fullname);
-        if (finf.isSymLink())
-            continue;
-        if (finf.isDir()) {
-            QDir subdir(fullname);
-            parseDir(subdir, subpath + fname + QDir::separator());
-            continue;
-        }
-
-        QRegularExpression rx(REGEXP_XLSX);
-        auto m = rx.match(fname);
-
-        if (!m.hasMatch())
-            continue;
-
-        QStringList cap = m.capturedTexts();
-
-        CDirItem di;
-        di.fname = subpath + fname;
-        di.sel = SEL_NONE;
-
-        di.date = QDate(cap[3].toUInt()+2000, cap[2].toUInt(), cap[1].toUInt());
-        di.isNow =
-            di.date.isValid() &&
-            (di.date == QDate::currentDate());
-
-        if (di.isNow && selFile.isEmpty()) {
-            di.sel = SEL_AUTO;
-            selFile = fullname;
-            // Имя файла в statusbar
-            labSelFile->setText(fname);
-        }
-
-        dirs.append(di);
-    }
-}
-
 // Перечтение текущей папки с файлами
 void MainWnd::refreshDir()
 {
     // Подготавливаемся к чтению папки
-    QString prevFile = selFile;
-    dirs.clear();
-    selFile = "";
-    // Перед началом таймер всегда выключаем,
-    // включим его при необходимости вконце
-    if (tmrRefreshDir->isActive())
-        tmrRefreshDir->stop();
+    dirs->clear();
+    // enabled для кнопки "отправка"
+    ui->btnFLoadSend->setEnabled(false);
 
     // Проверяем валидность проверяемой папки
     QVariant vdir = sett.value("dir");
     if (!vdir.isValid()) {
-        emit ui->twFLoadFiles->model()->layoutChanged();
+        selFile = "";
+        // Выбранная папка рядом с кнопкой
+        ui->labFLoadDir->setText("[не выбрана]");
         // Имя файла в statusbar
         labSelFile->setText("Не выбрана папка с файлами");
         return;
@@ -313,71 +249,34 @@ void MainWnd::refreshDir()
 
     QDir dir(sdir);
     if (!dir.exists()) {
-        emit ui->twFLoadFiles->model()->layoutChanged();
+        selFile = "";
+        // Выбранная папка рядом с кнопкой
+        ui->labFLoadDir->setText("[не существует] " + sdir);
         // Имя файла в statusbar
         labSelFile->setText("Выбранной папки не существует");
         return;
     }
+    ui->labFLoadDir->setText(sdir);
 
     // парсим выбранную диру
-    parseDir(dir);
-
-    // Обновляем отображение в таблице
-    ui->twFLoadFiles->setSortingEnabled(false);
-    emit ui->twFLoadFiles->model()->layoutChanged();
-    ui->twFLoadFiles->setSortingEnabled(true);
-
-    // enabled для кнопки "отправка"
-    ui->btnFLoadSend->setEnabled(!selFile.isEmpty());
-
-    // Если не смогли найти в авторежиме, то через время ещё раз попробуем
-    if (selFile.isEmpty()) {
-        tmrRefreshDir->start(5000);
+    if (!dirs->start(sdir)) {
+        selFile = "";
         // Имя файла в statusbar
         labSelFile->setText("Не найден текущий файл");
     }
-    else
-    // Загружаем выбранный файл
-    if (prevFile != selFile)
-        sendSelFile();
 }
 
-// Принудительный выбор файла из списка
-void MainWnd::forceSelectFile(int i)
+void MainWnd::fileSelect(const QString fullname, const QString fname)
 {
-    if ((i < 0) || (i >= dirs.count()))
-        return;
-
-    QString prevFile = selFile;
-
-    // Сбрасываем выбор у всех файлов
-    for (auto &d: dirs)
-        d.sel = SEL_NONE;
-
-    auto &d = dirs[i];
-    // ставим "принудительно"
-    d.sel = SEL_FORCE;
-    QVariant vdir = sett.value("dir");
-    selFile =
-        vdir.isValid() ?
-            vdir.toString() + QDir::separator() + d.fname :
-            "";
-    // Имя файла в statusbar
-    labSelFile->setText(vdir.isValid() ? d.fname : "Не выбрана рабочая папка");
-
-    // Не забываем отключить таймер автообновления рабочей папки
-    if (tmrRefreshDir->isActive())
-        tmrRefreshDir->stop();
-
-    // Обновляем отображение в таблице
-    emit ui->twFLoadFiles->model()->layoutChanged();
+    labSelFile->setText(fname);
 
     // enabled для кнопки "отправка"
-    ui->btnFLoadSend->setEnabled(!selFile.isEmpty());
+    ui->btnFLoadSend->setEnabled(true);
 
-    // Загружаем выбранный файл
-    if (!selFile.isEmpty() && (prevFile != selFile))
+    if (selFile != fullname) {
+        selFile = fullname;
         sendSelFile();
+    }
 }
 
 // проверка раз в сек, был ли изменён файл
@@ -574,16 +473,12 @@ void MainWnd::replyOpt(const QString &str)
 
     if (opt == "SPECSUMM") {
         QJsonArray list = loadDoc.array();
-        ui->twSpecSumm->setSortingEnabled(false);
         specsumm->parseJson(&list);
-        ui->twSpecSumm->setSortingEnabled(true);
     }
     else
     if (opt == "FLYERS") {
         QJsonArray list = loadDoc.array();
-        ui->twFlyers->setSortingEnabled(false);
         flyers->parseJson(&list);
-        ui->twFlyers->setSortingEnabled(true);
     }
     else
     if (opt == "FLYINFO") {
