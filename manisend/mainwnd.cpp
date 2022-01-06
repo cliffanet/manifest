@@ -6,11 +6,7 @@
 #include <QMenu>
 #include <QFileDialog>
 #include <QStandardPaths>
-#include <QNetworkAccessManager>
-#include <QHttpMultiPart>
-#include <QNetworkReply>
 #include <QJsonDocument>
-#include <QJsonObject>
 #include <QJsonArray>
 
 MainWnd::MainWnd(QWidget *parent)
@@ -21,10 +17,6 @@ MainWnd::MainWnd(QWidget *parent)
 
     this->setWindowTitle(tr("Манифест"));
 
-    // http-запросы
-    httpManager = new QNetworkAccessManager(this);
-    connect(httpManager, &QNetworkAccessManager::finished, this, &MainWnd::sendDone);
-
     createTrayIcon();
     trayIcon->show();
 
@@ -33,7 +25,7 @@ MainWnd::MainWnd(QWidget *parent)
     initFlyers();
     initStatusBar();
 
-    refreshDir();
+    on_btnFLoadRefresh_clicked();
 }
 
 MainWnd::~MainWnd()
@@ -44,13 +36,46 @@ MainWnd::~MainWnd()
 // Кнопка "отправить текущий файл"
 void MainWnd::on_btnFLoadSend_clicked()
 {
-    sendSelFile();
+    fcur->send();
 }
 
 // кнопка "Обновить директорию"
 void MainWnd::on_btnFLoadRefresh_clicked()
 {
-    refreshDir();
+    // Подготавливаемся к чтению папки
+    dirs->clear();
+    // enabled для кнопки "отправка"
+    ui->btnFLoadSend->setEnabled(false);
+
+    // прерываем автозагрузку файла
+    fcur->clear();
+
+    // Проверяем валидность проверяемой папки
+    QVariant vdir = sett.value("dir");
+    if (!vdir.isValid()) {
+        // Выбранная папка рядом с кнопкой
+        ui->labFLoadDir->setText("[не выбрана]");
+        // Имя файла в statusbar
+        labSelFile->setText("Не выбрана папка с файлами");
+        return;
+    }
+    QString sdir = vdir.toString();
+
+    QDir dir(sdir);
+    if (!dir.exists()) {
+        // Выбранная папка рядом с кнопкой
+        ui->labFLoadDir->setText("[не существует] " + sdir);
+        // Имя файла в statusbar
+        labSelFile->setText("Выбранной папки не существует");
+        return;
+    }
+    ui->labFLoadDir->setText(sdir);
+
+    // парсим выбранную диру
+    if (!dirs->start(sdir)) {
+        // Имя файла в statusbar
+        labSelFile->setText("Не найден текущий файл");
+    }
 }
 
 // Выбор папки в файлами
@@ -75,7 +100,7 @@ void MainWnd::on_btnFLoadDir_clicked()
     // Сохраняем настройки
     sett.setValue("dir", dir);
     sett.sync();
-    refreshDir();
+    on_btnFLoadRefresh_clicked();
 }
 
 // двойной клик на списке файлов
@@ -83,6 +108,15 @@ void MainWnd::on_twFLoadFiles_doubleClicked(const QModelIndex &index)
 {
     // По двойному клику принудительно выберем файл для отправки
     dirs->selectForce(index.row());
+}
+
+// Изменение галки "не сохранять"
+void MainWnd::on_chkNoSave_toggled(bool checked)
+{
+    if (checked)
+        fcur->setFlag(FileLoader::NoSave);
+    else
+        fcur->delFlag(FileLoader::NoSave);
 }
 
 // Инициализация иконка в Tray
@@ -140,11 +174,23 @@ void MainWnd::trayMainToggle(bool checked)
 // инициализация отображения списка файлов
 void MainWnd::initFLoadFiles()
 {
+    // выбранная директория с файлами
     dirs = new ModDir(this);
     ui->twFLoadFiles->setModel(dirs);
-
     connect(dirs, &ModDir::selected, this, &MainWnd::fileSelect);
 
+    // Выбранный файл
+    fcur = new FileLoader(this);
+    QVariant vurl = sett.value("url");
+    if (vurl.isValid())
+        fcur->setUrl(vurl.toString());
+    connect(fcur, &FileLoader::sendBegin,       this, &MainWnd::sendBegin);
+    connect(fcur, &FileLoader::sendFinishing,   this, &MainWnd::sendFinishing);
+    connect(fcur, &FileLoader::sendError,       this, &MainWnd::sendError);
+    connect(fcur, &FileLoader::sendOk,          this, &MainWnd::sendOk);
+    connect(fcur, &FileLoader::replyOpt,        this, &MainWnd::replyOpt);
+
+    // Таблица с листингом файлов в выбранной директории
     ui->twFLoadFiles->setColumnWidth(0,70);
     ui->twFLoadFiles->setColumnWidth(1,120);
     //ui->twFLoadFiles->setColumnWidth(2,250);
@@ -158,14 +204,6 @@ void MainWnd::initFLoadFiles()
     ui->twFLoadFiles->horizontalHeader()->setFont( font );
     ui->twFLoadFiles->horizontalHeader()->setDefaultAlignment(Qt::AlignCenter | (Qt::Alignment)Qt::TextWordWrap);
     //ui->twFLoadFiles->horizontalHeader()->setFixedHeight(ui->twFLoadFiles->horizontalHeader()->height()*2);
-
-    // Таймер для проверки изменений в файле для отправки на сервер
-    tmrSendSelFile = new QTimer(this);
-    connect(tmrSendSelFile, &QTimer::timeout, this, &MainWnd::chkSelFile);
-
-    // Таймер для повторной отправки после неудачной
-    tmrReSendOnFail = new QTimer(this);
-    connect(tmrReSendOnFail, &QTimer::timeout, this, &MainWnd::sendSelFile);
 }
 
 void MainWnd::initSpecSumm()
@@ -227,87 +265,17 @@ bool MainWnd::event(QEvent *pEvent)
     return QWidget::event(pEvent);
 }
 
-// Перечтение текущей папки с файлами
-void MainWnd::refreshDir()
-{
-    // Подготавливаемся к чтению папки
-    dirs->clear();
-    // enabled для кнопки "отправка"
-    ui->btnFLoadSend->setEnabled(false);
-
-    // Проверяем валидность проверяемой папки
-    QVariant vdir = sett.value("dir");
-    if (!vdir.isValid()) {
-        selFile = "";
-        // Выбранная папка рядом с кнопкой
-        ui->labFLoadDir->setText("[не выбрана]");
-        // Имя файла в statusbar
-        labSelFile->setText("Не выбрана папка с файлами");
-        return;
-    }
-    QString sdir = vdir.toString();
-
-    QDir dir(sdir);
-    if (!dir.exists()) {
-        selFile = "";
-        // Выбранная папка рядом с кнопкой
-        ui->labFLoadDir->setText("[не существует] " + sdir);
-        // Имя файла в statusbar
-        labSelFile->setText("Выбранной папки не существует");
-        return;
-    }
-    ui->labFLoadDir->setText(sdir);
-
-    // парсим выбранную диру
-    if (!dirs->start(sdir)) {
-        selFile = "";
-        // Имя файла в statusbar
-        labSelFile->setText("Не найден текущий файл");
-    }
-}
-
+// авто или ручной выбор файла в листинге директории
 void MainWnd::fileSelect(const QString fullname, const QString fname)
 {
+    // индикация выбранного файла в statusbar
     labSelFile->setText(fname);
 
     // enabled для кнопки "отправка"
     ui->btnFLoadSend->setEnabled(true);
 
-    if (selFile != fullname) {
-        selFile = fullname;
-        sendSelFile();
-    }
-}
-
-// проверка раз в сек, был ли изменён файл
-void MainWnd::chkSelFile()
-{
-    if (selFile.isEmpty()) {
-        tmrSendSelFile->stop();
-        return;
-    }
-
-    if (dtSelFileSended.isValid() &&
-        (dtSelFileSended.secsTo(QDateTime::currentDateTime()) >= 1800)) {
-        // отправка, если мы ничего не отправляли более 30 минут,
-        // т.к. если час и более не отправлять файл на сервер,
-        // то данные с сервера сотрутся.
-        sendSelFile();
-        return;
-    }
-
-    const QFile file(selFile);
-    const QFileInfo finf(file);
-    if (!finf.exists())
-        return;
-
-    QDateTime modif = finf.lastModified();
-    if (!modif.isValid())
-        return;
-
-    if (!dtSelFileModif.isValid() || (dtSelFileModif < modif))
-        // Отправка при изменении файла
-        sendSelFile();
+    // автозагрузчик файла
+    fcur->run(fullname);
 }
 
 void MainWnd::popupMessage(const QString &txt, bool isErr)
@@ -318,147 +286,45 @@ void MainWnd::popupMessage(const QString &txt, bool isErr)
     trayIcon->showMessage("Манифест", txt, icon, 3000);
 }
 
-// вывод ошибки при отправке файла
-void MainWnd::sendError(const QString &txt)
+void MainWnd::sendBegin(const QString &url)
 {
-    // статус отправки в statusbar
-    labState->setText(
-        "["+QDateTime::currentDateTime().toString("hh:ss")+"] " +
-        "Ошибка отправки: " + txt
-    );
-
-    popupMessage("ОШИБКА: " + txt, true);
-
-    // При любой ошибке при отправке пробуюем отправить заного через 3 минуты
-    if (!selFile.isEmpty())
-        tmrReSendOnFail->start(180000);
-}
-
-// отправка выбранного файла
-bool MainWnd::sendSelFile()
-{
-    // всегда останавливаем таймер перед началом отправки файла
-    // запустим обратно только при завершении отправки
-    if (tmrSendSelFile->isActive())
-        tmrSendSelFile->stop();
-    if (tmrReSendOnFail->isActive())
-        tmrReSendOnFail->stop();
-
-    if (selFile.isEmpty()) {
-        sendError("Не определён файл для отправки");
-        return false;
-    }
-
-    if (!QFileInfo::exists(selFile)) {
-        sendError("Выбранный файл не существует");
-        return false;
-    }
-
-    QFile *file = new QFile(selFile);
-    if (!file->open(QIODevice::ReadOnly)) {
-        sendError("Не могу открыть файл");
-        return false;
-    }
-
-    // запоминаем lastModified файла,
-    // чтобы дальше он обновлялся автоматически
-    const QFileInfo finf(*file);
-    dtSelFileModif = finf.lastModified();
-
-    QHttpMultiPart *multiPart = new QHttpMultiPart(QHttpMultiPart::FormDataType);
-
-    QHttpPart partFile;
-    QString fname = selFile;
-    fname.remove('"');
-    fname.remove('\\');
-    partFile.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"file\"; filename=\""+fname+"\""));
-    partFile.setHeader(QNetworkRequest::ContentTypeHeader, QVariant("application/octet-string"));
-    partFile.setBodyDevice(file);
-    file->setParent(multiPart); // we cannot delete the file now, so delete it with the multiPart
-    multiPart->append(partFile);
-
-    QHttpPart partOpt;
-    partOpt.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"opt\""));
-    partOpt.setBody("specsumm");
-    multiPart->append(partOpt);
-    partOpt.setBody("flyers");
-    multiPart->append(partOpt);
-    partOpt.setBody("flyinfo");
-    multiPart->append(partOpt);
-
-    if (ui->chkNoSave->isChecked()) {
-        QHttpPart partNoSave;
-        partNoSave.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"nosave\""));
-        partNoSave.setBody("y");
-        multiPart->append(partNoSave);
-    }
-
-    QVariant vurl = sett.value("url");
-    QString surl = vurl.isValid() ? vurl.toString() : "http://monitor.my/load";
-    QUrl url(surl);
-    QNetworkRequest request(url);
-
-    QNetworkReply *reply = httpManager->post(request, multiPart);
-    multiPart->setParent(reply); // delete the multiPart with the reply
-
     // enabled для кнопки "отправка"
     ui->btnFLoadSend->setEnabled(false);
 
     // статус отправки в statusbar
-    labState->setText("Отправка файла по адресу: " + surl);
-
-    return true;
+    labState->setText("Отправка файла по адресу: " + url);
 }
 
-// завершение отправки файла - надо проверить возвращаемый ответ
-void MainWnd::sendDone(QNetworkReply *reply)
+void MainWnd::sendFinishing()
 {
     // enabled для кнопки "отправка"
-    ui->btnFLoadSend->setEnabled(!selFile.isEmpty());
+    ui->btnFLoadSend->setEnabled(fcur->isAllowed());
 
     // доп опции, которые мы запрашивали
     specsumm->clear();
     flyers->clear();
     info.finfo->clear();
+}
 
-    // Теперь отрисовываем статус операции
-    QVariant vstat = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute);
-    if (vstat.isValid() && (vstat.toUInt() == 200)) {
-        QString st = reply->readLine().trimmed();
+// вывод ошибки при отправке файла
+void MainWnd::sendError(const QString &msg)
+{
+    // статус отправки в statusbar
+    labState->setText(
+        "["+QDateTime::currentDateTime().toString("hh:ss")+"] " +
+        "Ошибка отправки: " + msg
+    );
 
-        // успешное завершение отправки файла
-        if (st == "OK") {
-            // время успешной отправки
-            // Оно нам пригодится, если очень долго не будет изменений
-            dtSelFileSended = QDateTime::currentDateTime();
+    popupMessage("ОШИБКА: " + msg, true);
+}
 
-            while (!reply->atEnd())
-                replyOpt(reply->readLine().trimmed());
+void MainWnd::sendOk()
+{
+    // статус отправки в statusbar
+    labState->setText("Успешно отправлен в " + QDateTime::currentDateTime().toString("hh:mm"));
 
-            // Запускаем обратно таймер проверки текущего файла
-            // только в случае успешной отправки,
-            // а в случае любой ошибки будет повторная отправка через 3 минуты
-            if (!selFile.isEmpty())
-                tmrSendSelFile->start(1000);
-
-            // статус отправки в statusbar
-            labState->setText("Успешно отправлен в " + dtSelFileSended.toString("hh:mm"));
-
-            // Сообщение
-            popupMessage("Успешно загружено");
-        }
-        else
-        if ((st.length() >= 6) && (st.left(6) == "ERROR ")) {
-            sendError(st.right(st.length()-6));
-        }
-    }
-    else {
-        // status != 200
-        sendError("Статус HTTP-запроса = " + (vstat.isValid() ? vstat.toString() : "-неизвестно-"));
-    }
-
-    // Удалим reply, когда управление вернётся в event-loop
-    reply->deleteLater();
+    // Сообщение
+    popupMessage("Успешно загружено");
 }
 
 void MainWnd::replyOpt(const QString &str)
@@ -486,3 +352,4 @@ void MainWnd::replyOpt(const QString &str)
         info.finfo->parseJson(&list);
     }
 }
+

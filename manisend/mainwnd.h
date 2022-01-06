@@ -4,17 +4,13 @@
 #include <QMainWindow>
 #include <QSystemTrayIcon>
 #include <QSettings>
-#include <QItemSelection>
-#include <QTimer>
-#include <QDir>
 #include "moddir.h"
+#include "fileloader.h"
 #include "modspecsumm.h"
 #include "modflyers.h"
 #include "modflyers.h"
 #include "infownd.h"
 
-class QNetworkReply;
-class QNetworkAccessManager;
 class QLabel;
 class QAction;
 
@@ -35,6 +31,7 @@ private slots:
     void on_btnFLoadRefresh_clicked();
     void on_btnFLoadDir_clicked();
     void on_twFLoadFiles_doubleClicked(const QModelIndex &index);
+    void on_chkNoSave_toggled(bool checked);
 
 private:
     Ui::MainWnd *ui;
@@ -47,13 +44,13 @@ private:
     void initFlyers();
     void initStatusBar();
     bool event(QEvent *pEvent);
-    void refreshDir();
     void fileSelect(const QString fullname, const QString fname);
-    void chkSelFile();
     void popupMessage(const QString &txt, bool isErr = false);
-    void sendError(const QString &txt);
-    bool sendSelFile();
-    void sendDone(QNetworkReply *reply);
+
+    void sendBegin(const QString &url);
+    void sendFinishing();
+    void sendError(const QString &msg);
+    void sendOk();
     void replyOpt(const QString &str);
 
     InfoWnd info;
@@ -63,18 +60,11 @@ private:
     QAction *actMain;
     QSettings sett;
     ModDir *dirs;
-    QString selFile;
-    QDateTime dtSelFileModif;
-    QDateTime dtSelFileSended;
+    FileLoader *fcur;
     ModSpecSumm *specsumm;
     ModFlyers *flyers;
 
-    QTimer *tmrSendSelFile;
-    QTimer *tmrReSendOnFail;
-
     QLabel* labSelFile;
     QLabel* labState;
-
-    QNetworkAccessManager *httpManager;
 };
 #endif // MAINWND_H

@@ -48,6 +48,10 @@ public:
     const QString &selectedFName() { return selFName; }
     QString selectedFullName();
 
+Q_SIGNALS:
+    void autoFound(const QString &fullname, const QString &fname);
+    void selected(const QString &fullname, const QString &fname);
+
 private:
     CDirList list;  //holds text entered into QTableView
     int sort_col = -1;
@@ -58,10 +62,6 @@ private:
     QTimer *tmrRefresh;
 
     void parseDir(const QString subpath);
-
-Q_SIGNALS:
-    void autoFound(const QString &fullname, const QString &fname);
-    void selected(const QString &fullname, const QString &fname);
 };
 
 #endif // MODDIR_H
