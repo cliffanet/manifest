@@ -3,8 +3,11 @@
 
 #include <QAction>
 
+#include <QSettings>
+extern QSettings *sett;
+
 InfoWnd::InfoWnd(QWidget *parent) :
-    QDialog(parent),
+    QMainWindow(parent),
     ui(new Ui::InfoWnd)
 {
     ui->setupUi(this);
@@ -42,11 +45,23 @@ void InfoWnd::trayInfoToggle(bool checked)
 
 bool InfoWnd::event(QEvent *pEvent)
 {
-    if (pEvent->type() == QEvent::Show)
+    if (pEvent->type() == QEvent::Show) {
+        QVariant s;
+        s = sett->value("infogeom");
+        if (s.isValid())
+            restoreGeometry(s.toByteArray());
+        s = sett->value("infocol");
+        if (s.isValid())
+            ui->twInfo->horizontalHeader()->restoreState(s.toByteArray());
         actInfo->setChecked(true);
+    }
     else
-    if (pEvent->type() == QEvent::Hide)
+    if (pEvent->type() == QEvent::Hide) {
+        sett->setValue("infogeom", saveGeometry());
+        sett->setValue("infocol", ui->twInfo->horizontalHeader()->saveState());
+        sett->sync();
         actInfo->setChecked(false);
+    }
 
-    return QDialog::event(pEvent);
+    return QMainWindow::event(pEvent);
 }

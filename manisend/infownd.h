@@ -1,7 +1,7 @@
 #ifndef INFOWND_H
 #define INFOWND_H
 
-#include <QDialog>
+#include <QMainWindow>
 #include "modfinfo.h"
 
 class QAction;
@@ -10,7 +10,7 @@ namespace Ui {
 class InfoWnd;
 }
 
-class InfoWnd : public QDialog
+class InfoWnd : public QMainWindow
 {
     Q_OBJECT
 

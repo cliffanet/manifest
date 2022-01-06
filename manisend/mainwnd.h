@@ -3,7 +3,6 @@
 
 #include <QMainWindow>
 #include <QSystemTrayIcon>
-#include <QSettings>
 #include "moddir.h"
 #include "fileloader.h"
 #include "modspecsumm.h"
@@ -25,6 +24,8 @@ class MainWnd : public QMainWindow
 public:
     MainWnd(QWidget *parent = nullptr);
     ~MainWnd();
+    void appCommitData();
+    void restoreWnd();
 
 private slots:
     void on_btnFLoadSend_clicked();
@@ -58,7 +59,6 @@ private:
     QSystemTrayIcon *trayIcon;
     QMenu *trayIconMenu;
     QAction *actMain;
-    QSettings sett;
     ModDir *dirs;
     FileLoader *fcur;
     ModSpecSumm *specsumm;

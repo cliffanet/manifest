@@ -9,6 +9,9 @@
 #include <QJsonDocument>
 #include <QJsonArray>
 
+#include <QSettings>
+extern QSettings *sett;
+
 MainWnd::MainWnd(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWnd)
@@ -33,6 +36,35 @@ MainWnd::~MainWnd()
     delete ui;
 }
 
+void MainWnd::appCommitData()
+{
+    sett->setValue("mainshow", isVisible());
+    sett->setValue("infoshow", info.isVisible());
+    sett->sync();
+}
+
+// Восстановление окон
+void MainWnd::restoreWnd()
+{
+    QVariant s;
+    s = sett->value("mainshow");
+    if (s.isValid()) {
+        if (s.toBool())
+            show();
+    }
+    else
+    if (!fcur->isAllowed())
+        show();
+
+    s = sett->value("infoshow");
+    if (s.isValid()) {
+        if (s.toBool())
+            info.show();
+    }
+    else
+        info.show();
+}
+
 // Кнопка "отправить текущий файл"
 void MainWnd::on_btnFLoadSend_clicked()
 {
@@ -51,7 +83,7 @@ void MainWnd::on_btnFLoadRefresh_clicked()
     fcur->clear();
 
     // Проверяем валидность проверяемой папки
-    QVariant vdir = sett.value("dir");
+    QVariant vdir = sett->value("dir");
     if (!vdir.isValid()) {
         // Выбранная папка рядом с кнопкой
         ui->labFLoadDir->setText("[не выбрана]");
@@ -82,7 +114,7 @@ void MainWnd::on_btnFLoadRefresh_clicked()
 void MainWnd::on_btnFLoadDir_clicked()
 {
     // Есть ли у нас уже выбранный вариант, чтобы указать QFileDialog, какую папку открыть
-    QVariant vdir = sett.value("dir");
+    QVariant vdir = sett->value("dir");
     QString dir = vdir.isValid() ? vdir.toString() : "";
     if (dir.isEmpty() || !QDir(dir).exists())
         dir = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation);
@@ -98,8 +130,8 @@ void MainWnd::on_btnFLoadDir_clicked()
     }
 
     // Сохраняем настройки
-    sett.setValue("dir", dir);
-    sett.sync();
+    sett->setValue("dir", dir);
+    sett->sync();
     on_btnFLoadRefresh_clicked();
 }
 
@@ -167,7 +199,7 @@ void MainWnd::trayMainToggle(bool checked)
         this->raise();
     }
     else {
-        this->hide();
+        this->close();
     }
 }
 
@@ -181,7 +213,7 @@ void MainWnd::initFLoadFiles()
 
     // Выбранный файл
     fcur = new FileLoader(this);
-    QVariant vurl = sett.value("url");
+    QVariant vurl = sett->value("url");
     if (vurl.isValid())
         fcur->setUrl(vurl.toString());
     connect(fcur, &FileLoader::sendBegin,       this, &MainWnd::sendBegin);
@@ -256,11 +288,31 @@ void MainWnd::initStatusBar()
 
 bool MainWnd::event(QEvent *pEvent)
 {
-    if (pEvent->type() == QEvent::Show)
+    if (pEvent->type() == QEvent::Show) {
+        QVariant s;
+        s = sett->value("maingeom");
+        if (s.isValid())
+            restoreGeometry(s.toByteArray());
+        s = sett->value("dircol");
+        if (s.isValid())
+            ui->twFLoadFiles->horizontalHeader()->restoreState(s.toByteArray());
+        s = sett->value("specsummcol");
+        if (s.isValid())
+            ui->twSpecSumm->horizontalHeader()->restoreState(s.toByteArray());
+        s = sett->value("flyerscol");
+        if (s.isValid())
+            ui->twFlyers->horizontalHeader()->restoreState(s.toByteArray());
         actMain->setChecked(true);
+    }
     else
-    if (pEvent->type() == QEvent::Hide)
+    if (pEvent->type() == QEvent::Hide) {
+        sett->setValue("maingeom", saveGeometry());
+        sett->setValue("dircol",        ui->twFLoadFiles->horizontalHeader()->saveState());
+        sett->setValue("specsummcol",   ui->twSpecSumm->horizontalHeader()->saveState());
+        sett->setValue("flyerscol",     ui->twFlyers->horizontalHeader()->saveState());
+        sett->sync();
         actMain->setChecked(false);
+    }
 
     return QWidget::event(pEvent);
 }
