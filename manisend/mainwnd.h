@@ -33,6 +33,7 @@ private slots:
     void on_btnFLoadDir_clicked();
     void on_twFLoadFiles_doubleClicked(const QModelIndex &index);
     void on_chkNoSave_toggled(bool checked);
+    void on_btnSpecPrice_clicked();
 
 private:
     Ui::MainWnd *ui;
@@ -53,6 +54,8 @@ private:
     void sendError(const QString &msg);
     void sendOk();
     void replyOpt(const QString &str);
+
+    void specSelect();
 
     InfoWnd info;
 

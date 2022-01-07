@@ -1,6 +1,8 @@
 #include "mainwnd.h"
 #include "ui_mainwnd.h"
 
+#include "formspecprice.h"
+
 #include <QCloseEvent>
 #include <QAction>
 #include <QMenu>
@@ -8,6 +10,7 @@
 #include <QStandardPaths>
 #include <QJsonDocument>
 #include <QJsonArray>
+#include <QShortcut>
 
 #include <QSettings>
 extern QSettings *sett;
@@ -151,6 +154,21 @@ void MainWnd::on_chkNoSave_toggled(bool checked)
         fcur->delFlag(FileLoader::NoSave);
 }
 
+// кнопка "изменить ставку" для инфы по спец-персонам
+void MainWnd::on_btnSpecPrice_clicked()
+{
+    auto &sel = ui->twSpecSumm->selectionModel()->selection();
+    if (sel.count() < 1) return;
+
+    auto *ss = specsumm->byRow(sel.indexes().first().row());
+    if (ss == nullptr) return;
+
+    auto *f = new FormSpecPrice(this);
+    QString code = ss->code; // Дублируем, т.к. за время edit() список в specsumm может измениться
+    f->edit(code);
+    specsumm->recalcCode(code);
+}
+
 // Инициализация иконка в Tray
 void MainWnd::createTrayIcon()
 {
@@ -161,7 +179,7 @@ void MainWnd::createTrayIcon()
     connect(actMain, &QAction::toggled, this, &MainWnd::trayMainToggle);
     trayIconMenu->addAction(actMain);
 
-    info.actInfo = new QAction(tr("Информация"), this);
+    info.actInfo = new QAction(tr("Монитор взлётов"), this);
     info.actInfo->setCheckable(true);
     connect(info.actInfo, &QAction::toggled, &info, &InfoWnd::trayInfoToggle);
     trayIconMenu->addAction(info.actInfo);
@@ -246,6 +264,7 @@ void MainWnd::initSpecSumm()
     ui->twSpecSumm->setColumnWidth(1,70);
     ui->twSpecSumm->setColumnWidth(2,70);
     ui->twSpecSumm->setColumnWidth(3,70);
+    ui->twSpecSumm->setColumnWidth(4,70);
 
     ui->twSpecSumm->sortByColumn(0, Qt::AscendingOrder);
     ui->twSpecSumm->setSortingEnabled(true);
@@ -255,6 +274,15 @@ void MainWnd::initSpecSumm()
     font.setBold(true);
     ui->twSpecSumm->horizontalHeader()->setFont( font );
     ui->twSpecSumm->horizontalHeader()->setDefaultAlignment(Qt::AlignCenter | (Qt::Alignment)Qt::TextWordWrap);
+
+    specSelect();
+    connect(ui->twSpecSumm->selectionModel(), &QItemSelectionModel::selectionChanged, this, &MainWnd::specSelect);
+
+    connect(ui->twSpecSumm, &QTableView::doubleClicked, this, &MainWnd::on_btnSpecPrice_clicked);
+    QShortcut *scReturn = new QShortcut(QKeySequence(Qt::Key_Return), ui->twSpecSumm);
+    connect(scReturn, &QShortcut::activated, this, &MainWnd::on_btnSpecPrice_clicked);
+    QShortcut *scF2 = new QShortcut(QKeySequence(Qt::Key_F2), ui->twSpecSumm);
+    connect(scF2, &QShortcut::activated, this, &MainWnd::on_btnSpecPrice_clicked);
 }
 
 void MainWnd::initFlyers()
@@ -328,6 +356,9 @@ void MainWnd::fileSelect(const QString fullname, const QString fname)
 
     // автозагрузчик файла
     fcur->run(fullname);
+
+    // Останавливаем автообновление текущей директории
+    dirs->stop();
 }
 
 void MainWnd::popupMessage(const QString &txt, bool isErr)
@@ -356,6 +387,7 @@ void MainWnd::sendFinishing()
     specsumm->clear();
     flyers->clear();
     info.finfo->clear();
+    specSelect();
 }
 
 // вывод ошибки при отправке файла
@@ -377,6 +409,8 @@ void MainWnd::sendOk()
 
     // Сообщение
     popupMessage("Успешно загружено");
+
+    specSelect();
 }
 
 void MainWnd::replyOpt(const QString &str)
@@ -403,5 +437,11 @@ void MainWnd::replyOpt(const QString &str)
         QJsonArray list = loadDoc.array();
         info.finfo->parseJson(&list);
     }
+}
+
+void MainWnd::specSelect()
+{
+    int cnt = ui->twSpecSumm->selectionModel()->selection().count();
+    ui->btnSpecPrice->setEnabled(cnt > 0);
 }
 

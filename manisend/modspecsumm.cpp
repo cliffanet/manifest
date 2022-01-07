@@ -1,8 +1,12 @@
 #include "modspecsumm.h"
+#include "formspecprice.h"
 
 #include <QFont>
 #include <QJsonArray>
 #include <QJsonObject>
+
+#include <QSettings>
+extern QSettings *sett;
 
 ModSpecSumm::ModSpecSumm(QObject *parent)
     : QAbstractTableModel(parent)
@@ -17,7 +21,7 @@ int ModSpecSumm::rowCount(const QModelIndex & /*parent*/) const
 
 int ModSpecSumm::columnCount(const QModelIndex & /*parent*/) const
 {
-    return 5;
+    return 6;
 }
 
 QVariant ModSpecSumm::headerData(int section, Qt::Orientation orientation, int role) const
@@ -28,7 +32,8 @@ QVariant ModSpecSumm::headerData(int section, Qt::Orientation orientation, int r
             case 1: return QString("Код");
             case 2: return QString("Взлётов");
             case 3: return QString("Человек");
-            case 4: return QString("Взлёты");
+            case 4: return QString("Сумма");
+            case 5: return QString("Взлёты");
         }
     }
     return QVariant();
@@ -45,7 +50,8 @@ QVariant ModSpecSumm::data(const QModelIndex &index, int role) const
                     case 1: return p.code;
                     case 2: return QString::number(p.flycnt);
                     case 3: return QString::number(p.perscnt);
-                    case 4: return p.fly;
+                    case 4: return p.summ > 0 ? QString::number(p.summ) : QVariant();
+                    case 5: return p.fly;
                 }
             }
             break;
@@ -54,6 +60,7 @@ QVariant ModSpecSumm::data(const QModelIndex &index, int role) const
             switch (index.column()) {
                 case 2:
                 case 3:
+                case 4:
                     return int(Qt::AlignRight | Qt::AlignVCenter);
             }
     }
@@ -95,6 +102,11 @@ void ModSpecSumm::sort(int column, Qt::SortOrder order)
             break;
         case 4:
             std::sort(list.begin(), list.end(),
+                [asc] (const CSpecItem &p1, const CSpecItem &p2) { return asc ? p2.summ > p1.summ : p1.summ > p2.summ; }
+            );
+            break;
+        case 5:
+            std::sort(list.begin(), list.end(),
                 [asc] (const CSpecItem &p1, const CSpecItem &p2) { return asc ? p2.fly > p1.fly : p1.fly > p2.fly; }
             );
             break;
@@ -112,6 +124,8 @@ void ModSpecSumm::clear()
 void ModSpecSumm::parseJson(const QJsonArray *_list)
 {
     list.clear();
+    sett->beginGroup("SpecPrice");
+
     for (const auto &item : *_list) {
         const auto row = item.toObject();
         CSpecItem s = {
@@ -119,13 +133,50 @@ void ModSpecSumm::parseJson(const QJsonArray *_list)
             .code   = row["code"].toString(),
             .flycnt = row["flycnt"].toInt(),
             .perscnt= row["perscnt"].toInt(),
+            .summ   = 0,
             .fly    = row["fly"].toString(),
         };
+
+        if (!s.code.isEmpty()) {
+            QString suff = FormSpecPrice::settByCode(s.code);
+            if (!suff.isEmpty()) {
+                QVariant val;
+                val = sett->value(suff + "forfly");
+                if (val.isValid())
+                    s.summ += val.toUInt() * s.flycnt;
+                val = sett->value(suff + "forpers");
+                if (val.isValid())
+                    s.summ += val.toUInt() * s.perscnt;
+            }
+        }
+
         list.push_back(s);
     }
+
+    sett->endGroup();
 
     if (sort_col >= 0)
         sort(sort_col, sort_ord);
     // Обновляем отображение в таблице
+    emit layoutChanged();
+}
+
+void ModSpecSumm::recalcCode(const QString &code)
+{
+    QVariant val;
+    sett->beginGroup("SpecPrice");
+    QString suff = FormSpecPrice::settByCode(code);
+    val = sett->value(suff + "forfly");
+    uint forfly = val.isValid() ? val.toUInt() : 0;
+    val = sett->value(suff + "forpers");
+    uint forpers = val.isValid() ? val.toUInt() : 0;
+    sett->endGroup();
+
+    for (auto &s : list) {
+        if (s.code != code)
+            continue;
+        s.summ = forfly*s.flycnt + forpers*s.perscnt;
+    }
+
     emit layoutChanged();
 }

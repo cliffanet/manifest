@@ -10,6 +10,7 @@ CONFIG += c++11
 
 SOURCES += \
     fileloader.cpp \
+    formspecprice.cpp \
     infownd.cpp \
     main.cpp \
     mainwnd.cpp \
@@ -20,6 +21,7 @@ SOURCES += \
 
 HEADERS += \
     fileloader.h \
+    formspecprice.h \
     infownd.h \
     mainwnd.h \
     moddir.h \
@@ -28,6 +30,7 @@ HEADERS += \
     modspecsumm.h
 
 FORMS += \
+    formspecprice.ui \
     infownd.ui \
     mainwnd.ui
 

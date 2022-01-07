@@ -12,6 +12,7 @@ typedef struct c_spec_item {
     QString code;
     int flycnt;
     int perscnt;
+    int summ;
     QString fly;
 } CSpecItem;
 
@@ -32,6 +33,8 @@ public:
 
     void clear();
     void parseJson(const QJsonArray *_list);
+    const CSpecItem *byRow(int i) { return (i>=0) && (i<list.size()) ? &list[i] : nullptr; }
+    void recalcCode(const QString &code);
 
 private:
     CSpecList list;  //holds text entered into QTableView
