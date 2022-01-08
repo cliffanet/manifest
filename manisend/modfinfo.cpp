@@ -9,6 +9,7 @@ ModFInfo::ModFInfo(QObject *parent)
     : QAbstractTableModel(parent)
 {
     tmParse = QDateTime::currentDateTime();
+    flash = false;
 }
 
 int ModFInfo::rowCount(const QModelIndex & /*parent*/) const
@@ -128,7 +129,8 @@ void ModFInfo::updateModeStr()
                     bsec -= bmin*60;
                     f.modestr = QString::asprintf("готовность: %d:%02d", bmin, bsec);
                     needTimer = true;
-                    if (f.flash) needFlash = true;
+                    if (f.flash)
+                        needFlash = true;
                 }
                 else
                 if ((sec - f.before) < 300) {
@@ -156,9 +158,8 @@ void ModFInfo::updateModeStr()
     }
 
     if (needTimer) {
-        if (needFlash)
-            flash = !flash;
-        QTimer::singleShot(needFlash ? 330 : 1000, this, &ModFInfo::updateModeStr);
+        flash = not flash;
+        QTimer::singleShot(needFlash ? 440 : 1000, this, &ModFInfo::updateModeStr);
     }
 
     // Обновляем отображение в таблице
