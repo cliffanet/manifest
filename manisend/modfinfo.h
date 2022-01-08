@@ -16,6 +16,7 @@ typedef struct c_finfo_item {
     int     before;
     int     closed_recently;
     QString modestr;
+    bool    flash;
 } CFInfoItem;
 
 typedef QList<CFInfoItem> CFInfoList;
@@ -39,6 +40,7 @@ public:
 private:
     CFInfoList list;  //holds text entered into QTableView
     QDateTime tmParse;
+    bool flash;
 };
 
 #endif // MODFINFO_H

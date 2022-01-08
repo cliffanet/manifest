@@ -38,7 +38,9 @@ QVariant ModFInfo::data(const QModelIndex &index, int role) const
     switch (role) {
         case Qt::DisplayRole:
             {
-                auto &f = list[index.row()];
+                const auto &f = list[index.row()];
+                if (f.flash && flash)
+                    return QVariant();
                 switch (index.column()) {
                     case 0: return f.sheetname;
                     case 1: return f.flyname;
@@ -47,18 +49,17 @@ QVariant ModFInfo::data(const QModelIndex &index, int role) const
                 }
             }
             break;
-/*
+
         case Qt::FontRole:
             {
-                auto &d = (*dirs)[index.row()];
-                if (d.sel > SEL_NONE) {
+                const auto &f = list[index.row()];
+                if (f.flash) {
                     QFont font;
                     font.setBold(true);
                     return font;
                 }
             }
             break;
-*/
 
         case Qt::TextAlignmentRole:
             switch (index.column()) {
@@ -108,17 +109,26 @@ void ModFInfo::updateModeStr()
 {
     int sec = tmParse.secsTo(QDateTime::currentDateTime());
     bool needTimer = false;
+    bool needFlash = false;
 
     for (int i = list.size()-1; i >= 0; i--) {
         auto &f = list[i];
+        f.flash = false;
         switch (f.state) {
             case 'b':
                 if (f.before > sec) {
                     int bsec = f.before - sec;
+                    f.flash =
+                            ((bsec > 880) && (bsec <= 910)) ||
+                            ((bsec > 580) && (bsec <= 610)) ||
+                            ((bsec > 280) && (bsec <= 310)) ||
+                            ((bsec > 0) && (bsec <= 30));
+
                     int bmin = bsec / 60;
                     bsec -= bmin*60;
                     f.modestr = QString::asprintf("готовность: %d:%02d", bmin, bsec);
                     needTimer = true;
+                    if (f.flash) needFlash = true;
                 }
                 else
                 if ((sec - f.before) < 300) {
@@ -145,8 +155,11 @@ void ModFInfo::updateModeStr()
         }
     }
 
-    if (needTimer)
-        QTimer::singleShot(1000, this, &ModFInfo::updateModeStr);
+    if (needTimer) {
+        if (needFlash)
+            flash = !flash;
+        QTimer::singleShot(needFlash ? 330 : 1000, this, &ModFInfo::updateModeStr);
+    }
 
     // Обновляем отображение в таблице
     emit layoutChanged();
