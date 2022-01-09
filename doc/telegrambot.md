@@ -62,6 +62,6 @@
 
 * Botpic - аватарка
 
-    ![](moneyfest.jpg)
+    <img src="moneyfest.jpg" width="250px" />
 
 * Command - список команд с описанием
