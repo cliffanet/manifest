@@ -91,11 +91,12 @@ Removing user (freebsd): mailspool home passwd.
 genet0: flags=8843<UP,BROADCAST,RUNNING,SIMPLEX,MULTICAST> metric 0 mtu 1500
 	options=68000b<RXCSUM,TXCSUM,VLAN_MTU,LINKSTATE,RXCSUM_IPV6,TXCSUM_IPV6>
 	ether dc:a6:32:0e:f9:10
-	inet <b><u>192.168.3.159<b></u> netmask 0xffffff00 broadcast 192.168.3.255
+	inet <b>192.168.3.159</b> netmask 0xffffff00 broadcast 192.168.3.255
 	media: Ethernet autoselect (100baseTX <full-duplex>)
 	status: active
 	nd6 options=29<PERFORMNUD,IFDISABLED,AUTO_LINKLOCAL>
 </pre>
+
 
 ## Способы отредактировать файлы
 
@@ -236,7 +237,6 @@ Password:📝 <b>пароль-для-root</b>
     ifconfig_DEFAULT="DHCP"
     ifconfig_genet0_alias0="inet 10.0.1.240/24"
     ifconfig_genet0_alias1="inet 1.1.1.240/32"
-    ifconfig_genet0_alias0="inet 192.168.3.240/24"
     
     sshd_enable="YES"
     mpd_enable="YES"
@@ -389,7 +389,7 @@ Password:📝 <b>пароль-для-root</b>
 
 Жмём `enter` и довольно долго ждём, пока установятся все зависимости и нужный нам модуль. Выход из `cpan` с помощью `ctrl` + `D`.
 
-И у меня не получилось, почему-то с первого раза. Установщик завершился с таким текстом:
+И у меня не получилось, почему-то, с первого раза. Установщик завершился с таким текстом:
 
     Writing Makefile for URI::redis
     Writing MYMETA.yml and MYMETA.json
@@ -427,7 +427,7 @@ Password:📝 <b>пароль-для-root</b>
 
 Ещё долго ждал (установилось ещё какое-то количество модулей, и долго выполнялись разные тесты) и... всё удалось!
 
-Вот так выглядит в конце (возможно, вы увидите это сразу без необходимости повторно выполнять установку модуля):
+Вот так выглядит в конце (возможно, Вы увидите это сразу без необходимости повторно выполнять установку модуля):
 
     Installing /usr/local/lib/perl5/site_perl/URI/redis_Punix.pm
     Installing /usr/local/lib/perl5/site_perl/URI/redis.pm
@@ -481,7 +481,7 @@ Password:📝 <b>пароль-для-root</b>
         /usr/local/etc/rc.d/redis stop
         
         mount /dev/da0s1a /mnt
-        cp /home/mnt/redis/* /home/redis/
+        cp /mnt/home/redis/* /home/redis/
         
         umount /mnt
         

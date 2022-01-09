@@ -188,6 +188,10 @@ bool ModDir::selectForce(int _index)
         // Изменён выбранный файл
         emit selected(curDir + QDir::separator() + di.fname, di.fname);
     }
+    
+    // Останавливаем таймер повторного автопоиска
+    if (tmrRefresh->isActive())
+        tmrRefresh->stop();
 
     // Обновление отображения таблицы
     emit layoutChanged();
