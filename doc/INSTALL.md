@@ -87,15 +87,15 @@ Removing user (freebsd): mailspool home passwd.
 
 <pre>
 [root@generic ~]# 📝 <b>ifconfig genet0</b>
+
+genet0: flags=8843<UP,BROADCAST,RUNNING,SIMPLEX,MULTICAST> metric 0 mtu 1500
+	options=68000b<RXCSUM,TXCSUM,VLAN_MTU,LINKSTATE,RXCSUM_IPV6,TXCSUM_IPV6>
+	ether dc:a6:32:0e:f9:10
+	inet <b><u>192.168.3.159<b></u> netmask 0xffffff00 broadcast 192.168.3.255
+	media: Ethernet autoselect (100baseTX <full-duplex>)
+	status: active
+	nd6 options=29<PERFORMNUD,IFDISABLED,AUTO_LINKLOCAL>
 </pre>
-    
-    genet0: flags=8843<UP,BROADCAST,RUNNING,SIMPLEX,MULTICAST> metric 0 mtu 1500
-    	options=68000b<RXCSUM,TXCSUM,VLAN_MTU,LINKSTATE,RXCSUM_IPV6,TXCSUM_IPV6>
-    	ether dc:a6:32:0e:f9:10
-    	inet **192.168.3.159** netmask 0xffffff00 broadcast 192.168.3.255
-    	media: Ethernet autoselect (100baseTX <full-duplex>)
-    	status: active
-    	nd6 options=29<PERFORMNUD,IFDISABLED,AUTO_LINKLOCAL>
 
 ## Базовая настройка системы
 
