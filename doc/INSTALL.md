@@ -71,17 +71,17 @@ Goodbye!
 
 Удаляем дефолтного пользователя:
 
-    [root@generic ~]# `rmuser freebsd`
-    Matching password entry:
-    
-    freebsd:$6$RaLQ0fcavdJkKhd8$gjhyY9Ech27BcxYa/rn3oLdgA/PC14W4mNi9OZDrhjHAYoiuV87uKQ/Hf6MXxO7dgC52PDjd9omdf1dlZFY8J.:1001:1001::0:0:FreeBSD User:/home/freebsd:/bin/csh
-    
-    Is this the entry you wish to remove? `y`
-    Remove user's home directory (/home/freebsd)? `y`
-    Removing user (freebsd): mailspool home passwd.
-    [root@generic ~]#
+<pre>
+[root@generic ~]# 📝 <b>rmuser freebsd</b>
+Matching password entry:
 
-Всё остальное можно настраивать через SSH.
+freebsd:$6$RaLQ0fcavdJkKhd8$gjhyY9Ech27BcxYa/rn3oLdgA/PC14W4mNi9OZDrhjHAYoiuV87uKQ/Hf6MXxO7dgC52PDjd9omdf1dlZFY8J.:1001:1001::0:0:FreeBSD User:/home/freebsd:/bin/csh
+
+Is this the entry you wish to remove? 📝 <b>y</b>
+Remove user's home directory (/home/freebsd)? 📝 <b>y</b>
+Removing user (freebsd): mailspool home passwd.
+[root@generic ~]#
+</pre>
 
 Посмотреть текущий полученный IP:
 
