@@ -35,37 +35,39 @@
 
 Добавляем пользователя:
 
-    [root@generic ~]# `adduser`
-    Username: `cliff`
-    Full name: `Cliff`
-    Uid (Leave empty for default):
-    Login group [cliff]: `wheel`
-    Login group is wheel. Invite cliff into other groups? []:
-    Login class [default]:
-    Shell (sh csh tcsh bash rbash nologin) [sh]: `bash`
-    Home directory [/home/cliff]:
-    Home directory permissions (Leave empty for default):
-    Use password-based authentication? [yes]:
-    Use an empty password? (yes/no) [no]:
-    Use a random password? (yes/no) [no]:
-    Enter password:`пароль`
-    Enter password again:`пароль`
-    Lock out the account after creation? [no]:
-    Username   : cliff
-    Password   : *****
-    Full Name  : Cliff
-    Uid        : 1002
-    Class      :
-    Groups     : wheel
-    Home       : /home/cliff
-    Home Mode  :
-    Shell      : /usr/local/bin/bash
-    Locked     : no
-    OK? (yes/no): `yes`
-    adduser: INFO: Successfully added (cliff) to the user database.
-    Add another user? (yes/no): `no`
-    Goodbye!
-    [root@generic ~]#
+<pre>
+[root@generic ~]# 📝 <b>adduser</b>
+Username: 📝 <b>cliff</b>
+Full name: 📝 <b>Cliff</b>
+Uid (Leave empty for default):
+Login group [cliff]: 📝 <b>wheel</b>
+Login group is wheel. Invite cliff into other groups? []:
+Login class [default]:
+Shell (sh csh tcsh bash rbash nologin) [sh]: 📝 <b>bash</b>
+Home directory [/home/cliff]:
+Home directory permissions (Leave empty for default):
+Use password-based authentication? [yes]:
+Use an empty password? (yes/no) [no]:
+Use a random password? (yes/no) [no]:
+Enter password: 📝 <b>пароль</b>
+Enter password again: 📝 <b>пароль</b>
+Lock out the account after creation? [no]:
+Username   : cliff
+Password   : *****
+Full Name  : Cliff
+Uid        : 1002
+Class      :
+Groups     : wheel
+Home       : /home/cliff
+Home Mode  :
+Shell      : /usr/local/bin/bash
+Locked     : no
+OK? (yes/no): 📝 <b>yes</b>
+adduser: INFO: Successfully added (cliff) to the user database.
+Add another user? (yes/no): 📝 <b>no</b>
+Goodbye!
+[root@generic ~]#
+</pre>
 
 Удаляем дефолтного пользователя:
 
@@ -79,9 +81,13 @@
     Removing user (freebsd): mailspool home passwd.
     [root@generic ~]#
 
+Всё остальное можно настраивать через SSH.
+
 Посмотреть текущий полученный IP:
 
-    [root@generic ~]# `ifconfig genet0`
+<pre>
+[root@generic ~]# 📝 <b>ifconfig genet0</b>
+</pre>
     
     genet0: flags=8843<UP,BROADCAST,RUNNING,SIMPLEX,MULTICAST> metric 0 mtu 1500
     	options=68000b<RXCSUM,TXCSUM,VLAN_MTU,LINKSTATE,RXCSUM_IPV6,TXCSUM_IPV6>
@@ -95,11 +101,13 @@
 
 Подключаемся по `SSH` на указанный `IP`, авторизуясь по ранее добавленному пользователю.
 
-Все изменения делаем под пользователем `root`:
+Все изменения делаем под пользователем `root` (пароль по умолчанию: `root`):
 
-    [cliff@generic ~]$ su
-    Password:`пароль: root`
-    [root@generic /home/cliff]#
+<pre>
+[cliff@generic ~]$ 📝 <b>su</b>
+Password:📝 <b>пароль-для-root</b>
+[root@generic /home/cliff]#
+</pre>
 
 Редактируем:
 
