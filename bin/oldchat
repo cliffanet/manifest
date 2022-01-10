@@ -1,0 +1,126 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+use utf8;
+
+use Clib::Proc qw|script1 lib|;
+use Clib::Const ':utf8';
+use Clib::Log 'log_oldchat';
+
+use JSON::XS;
+use Encode;
+
+use WWW::Telegram::BotAPI;
+use RedisDB;
+
+use flyinf;
+
+$SIG{__DIE__} = sub { error('DIE: %s', $_) for @_ };
+
+###########################################################
+###########################################################
+###########################################################
+# Пользовательские имена
+my $uall = redis(hgetall => 'uname');
+if (ref($uall) ne 'ARRAY') {
+    error('Can\'t get user\'s NAMEs');
+    exit -1;
+}
+
+# наш токен
+my $token = c('telegram_token');
+if (!$token) {
+    error('`telegram_token` not defined');
+    exit -1;
+}
+
+# Подключаемся к API и проверяем авторизацию
+my $api = WWW::Telegram::BotAPI->new(token => $token);
+my $me = request('getMe');
+if (!$me->{ok} || !$me->{result} || !$me->{result}->{id}) {
+    error('Not valid token or Telegram-API fail: %s', $me->{error});
+    exit -1;
+}
+
+while (@$uall) {
+    my $chatid = shift @$uall;
+    my $name = shift @$uall;
+    
+    my $r = request(getChat => chat_id => $chatid);
+    if ($r->{ok} && $r->{result}) {
+        debug('for user: %s - OK: @%s / %s', $name, $r->{result}->{username}, $r->{result}->{first_name});
+    }
+    elsif ($r->{error} && ($r->{error} =~ /chat not found/)) {
+        log('for user: %s - NO CHAT - removing...', $name);
+        redis(hdel => uname => $chatid);
+        redis(hdel => uregexp => $chatid);
+    }
+    else {
+        error('for user: %s - %s', $r->{error}||'unknown');
+    }
+}
+
+exit 0;
+
+#==========================================================
+sub wrong_format {
+    error(@_ ? @_ : 'WRONG INPUT FORMAT');
+    exit -1;
+}
+
+sub request {
+    my $method = shift();
+    if (!$api) {
+        error('api not inited');
+        return;
+    }
+    local $SIG{__DIE__} = undef;
+    my $r = eval { $api->api_request($method, @_ ? { @_ } : ()) };
+    $r ||= { error => $@ || 'Unknown error' };
+    return $r;
+}
+
+# Соединение с Redis
+my $redis;
+sub redis {
+    $redis ||= RedisDB->new(
+                raise_error => 0,
+                lazy => 1,
+                
+                %{ c('redis')||{} },
+            );
+    
+    $redis || return;
+    
+    @_ || return 1;
+    
+    my $command = shift;
+    my @uccom = split /_/, uc $command;
+    
+    my $ret = $redis->execute(@uccom, @_);
+    
+    if (ref($ret) =~ /RedisDB\:\:Error/) {
+        error('[Redis ERROR] : %s', $ret->as_string);
+        return;
+    }
+    elsif (!$ret && $@) {
+        error('[Redis EXCEPTION] : %s', $@);
+        return;
+    }
+    
+    if (defined($ret) && !ref($ret)) {
+        Encode::_utf8_on($ret);
+    }
+    elsif (ref($ret) eq 'ARRAY') {
+        foreach my $r (@$ret) {
+            Encode::_utf8_on($r) if defined($r) && !ref($r);
+        }
+    }
+    
+    return $ret;
+}
+
+#==========================================================
+#================================================== End ===
+#==========================================================

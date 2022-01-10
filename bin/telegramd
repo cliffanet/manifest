@@ -223,6 +223,7 @@ sub cmd_im {
     my $regexp = $fam;
     if ($io) {
         $io =~ s/\./\\\./g;
+        $io =~ s/[еёЕЁ]/[еёЕЁ]/g;
         $regexp .= '\s*' . $io;
     }
     
