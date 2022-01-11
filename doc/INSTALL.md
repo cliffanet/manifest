@@ -481,8 +481,9 @@ Password:📝 <b>пароль-для-root</b>
 
         /usr/local/etc/rc.d/redis stop
         
-        mount /dev/da0s1a /mnt
+        mount /dev/da0s2a /mnt
         cp /mnt/home/redis/* /home/redis/
+        cp /mnt/home/manifest/redefine.conf /home/manifest/
         
         umount /mnt
         
