@@ -38,7 +38,7 @@
 
 ## Разделы документации
 
-* [QR-код Telegram-бота](doc/telegrambot.md) ([PDF](doc/telegrambot.pdf))
+* [QR-код Telegram-бота](doc/botqrcode.md) ([PDF](doc/botqrcode.pdf))
 
     Листок для печати с QR-кодом для быстрого открытия чата с Telegram-ботом оповещения о подъёмах.
 
