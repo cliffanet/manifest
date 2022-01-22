@@ -82,6 +82,7 @@ if ($api) {
 log('Starting with %s', $me && $me->{result} ? $me->{result}->{first_name}||$me->{result}->{username} : '-unknown-');
 
 # основной цикл
+my %wait = ();
 while ($api) {
     #debug(join ': ', @off, $api);
     my $upd = request(getUpdates => @off, timeout => 5 );
@@ -99,15 +100,38 @@ while ($api) {
             $msg->{from}->{first_name} || '['.$msg->{from}->{id}.']',
             $msg->{text});
         my $chat = $msg->{chat} || next;
+        my $chatid = $chat->{id};
         
-        if ($msg->{text} =~ /^(?:я|im?)(\s+(.+))?$/i) {
-            cmd_im($chat, $1);
+        if ($msg->{text} =~ /^\/?(?:ком(анд)|help|start?)/i) {
+            reply($chatid, 'help');
         }
-        elsif ($msg->{text} =~ /^(?:уд(алить)?|unreg|del(ete)?)/i) {
+        elsif ($msg->{text} =~ /^\/?(?:я|im?)(\s+(.+))?$/i) {
+            if (defined $1) {
+                delete $wait{$chatid};
+                cmd_im($chat, $1);
+            }
+            else {
+                $wait{$chatid} = 'im';
+                reply($chatid, 'im_waitname');
+            }
+        }
+        elsif ($msg->{text} =~ /^\/?(?:уд(алить)?|unreg|del(ete)?)/i) {
+            delete $wait{$chatid};
             cmd_unreg($chat);
         }
-        elsif ($msg->{text} =~ /^(?:инф(ормация)?|inf(o)?)/i) {
+        elsif ($msg->{text} =~ /^\/?(?:инф(ормация)?|inf(o)?)/i) {
+            delete $wait{$chatid};
             cmd_inf($chat);
+        }
+        elsif (my $w = $wait{$chatid}) {
+            my $ok = -1;
+            if ($w eq 'im') {
+                $ok = cmd_im($chat, $msg->{text});
+            }
+            
+            if ($ok) {
+                delete $wait{$chatid};
+            }
         }
     }
 }
