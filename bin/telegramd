@@ -123,6 +123,10 @@ while ($api) {
             delete $wait{$chatid};
             cmd_inf($chat);
         }
+        elsif ($msg->{text} =~ /^\/?(?:ппу|ppu)/i) {
+            delete $wait{$chatid};
+            cmd_ppu($chat);
+        }
         elsif (my $w = $wait{$chatid}) {
             my $ok = -1;
             if ($w eq 'im') {
@@ -423,6 +427,29 @@ sub cmd_inf {
     
     # Отвечаем в чат
     return reply($chat->{id}, join("\n", @reply));
+}
+
+# стенограмма ППУ
+sub cmd_ppu {
+    my ($chat) = @_;
+    
+    my $file = c('ppufile') || return;
+    
+    my $fh;
+    if (!(-e $file) || !open($fh, $file)) {
+        return reply($chat->{id}, c(telegram_reply => 'ppu_noexists'));
+    }
+    
+    local $/ = undef;
+    my $data = <$fh>;
+    Encode::_utf8_on($data);
+    close $fh;
+    
+    if (!$data) {
+        return reply($chat->{id}, c(telegram_reply => 'ppu_noexists'));
+    }
+    
+    return reply($chat->{id}, $data);
 }
 
 ##==========================================================

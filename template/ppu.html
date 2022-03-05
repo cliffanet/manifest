@@ -1,0 +1,20 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML  4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+</head>
+
+<body>
+    
+    [% IF !exists(file) %]<div>Нет файла ППУ</div>[% END %]
+    [% IF err %]<div style="color: red">[% err %]</div>[% END %]
+    [% IF saveok %]<div style="color: green">Успешно сохранено: [% DATETIME tmnow %]</div>[% END %]
+    
+    <form action="[% PREF ppu/set %]" method="post">
+        <textarea name="ppu" rows="24" cols="80">[% IF exists(file) %][% file %][% END %]</textarea>
+        <br />
+        <input type="submit" value="Отправить" />
+    </form>
+
+</body>
+</html>

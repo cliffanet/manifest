@@ -219,6 +219,7 @@ Password:📝 <b>пароль-для-root</b>
     */30    *       *       *       *       root    /usr/sbin/ntpdate -u 0.ru.pool.ntp.org 1.ru.pool.ntp.org 2.ru.pool.ntp.org >> /dev/null
     */1     *       *       *       *       root    /home/manifest/bin/flyevent
     4       8       *       *       *       root    /home/manifest/bin/oldchat
+    2       23      *       *       *       root    /bin/rm /home/manifest.tmp/ppu.txt
     3       1       *       *       *       root    /usr/local/etc/rc.d/mpd5 restart
 
 ### /etc/fstab
