@@ -29,6 +29,7 @@ MainWnd::MainWnd(QWidget *parent)
     initFLoadFiles();
     initSpecSumm();
     initFlyers();
+    initFlySumm();
     initStatusBar();
 
     on_btnFLoadRefresh_clicked();
@@ -304,6 +305,25 @@ void MainWnd::initFlyers()
     ui->twFlyers->horizontalHeader()->setDefaultAlignment(Qt::AlignCenter | (Qt::Alignment)Qt::TextWordWrap);
 }
 
+void MainWnd::initFlySumm()
+{
+    flysumm = new ModFlySumm(this);
+    ui->twFlySumm->setModel(flysumm);
+    ui->twFlySumm->setColumnWidth(0,260);
+    ui->twFlySumm->setColumnWidth(1,100);
+    ui->twFlySumm->setColumnWidth(2,100);
+    ui->twFlySumm->setColumnWidth(3,100);
+
+    ui->twFlySumm->sortByColumn(0, Qt::AscendingOrder);
+    ui->twFlySumm->setSortingEnabled(true);
+    //ui->twFlySumm->horizontalHeader()->setSectionResizeMode(QHeaderView::Fixed);
+
+    QFont font = ui->twFlySumm->horizontalHeader()->font();
+    font.setBold(true);
+    ui->twFlySumm->horizontalHeader()->setFont( font );
+    ui->twFlySumm->horizontalHeader()->setDefaultAlignment(Qt::AlignCenter | (Qt::Alignment)Qt::TextWordWrap);
+}
+
 // инициализация statusbar
 void MainWnd::initStatusBar()
 {
@@ -330,6 +350,9 @@ bool MainWnd::event(QEvent *pEvent)
         s = sett->value("flyerscol");
         if (s.isValid())
             ui->twFlyers->horizontalHeader()->restoreState(s.toByteArray());
+        s = sett->value("flysummcol");
+        if (s.isValid())
+            ui->twFlySumm->horizontalHeader()->restoreState(s.toByteArray());
         actMain->setChecked(true);
     }
     else
@@ -338,6 +361,7 @@ bool MainWnd::event(QEvent *pEvent)
         sett->setValue("dircol",        ui->twFLoadFiles->horizontalHeader()->saveState());
         sett->setValue("specsummcol",   ui->twSpecSumm->horizontalHeader()->saveState());
         sett->setValue("flyerscol",     ui->twFlyers->horizontalHeader()->saveState());
+        sett->setValue("flysummcol",    ui->twFlySumm->horizontalHeader()->saveState());
         sett->sync();
         actMain->setChecked(false);
     }
@@ -386,6 +410,7 @@ void MainWnd::sendFinishing()
     // доп опции, которые мы запрашивали
     specsumm->clear();
     flyers->clear();
+    flysumm->clear();
     info.finfo->clear();
     specSelect();
 }
@@ -431,6 +456,11 @@ void MainWnd::replyOpt(const QString &str)
     if (opt == "FLYERS") {
         QJsonArray list = loadDoc.array();
         flyers->parseJson(&list);
+    }
+    else
+    if (opt == "FLYSUMM") {
+        QJsonArray list = loadDoc.array();
+        flysumm->parseJson(&list);
     }
     else
     if (opt == "FLYINFO") {

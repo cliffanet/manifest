@@ -11,7 +11,7 @@ FileLoader::FileLoader(QObject *parent)
     : QObject{parent}
 {
     url = "http://monitor.my/load";
-    flags = OptSpecSumm | OptFlyers | OptFlyInfo;
+    flags = OptSpecSumm | OptFlyers | OptFlySumm | OptFlyInfo;
 
     // http-запросы
     http = new QNetworkAccessManager(this);
@@ -127,6 +127,10 @@ bool FileLoader::send()
     }
     if (flags & OptFlyers) {
         partOpt.setBody("flyers");
+        multiPart->append(partOpt);
+    }
+    if (flags & OptFlySumm) {
+        partOpt.setBody("flysumm");
         multiPart->append(partOpt);
     }
     if (flags & OptFlyInfo) {

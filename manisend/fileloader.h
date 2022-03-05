@@ -17,7 +17,8 @@ public:
 
         OptSpecSumm = 0x0100,
         OptFlyers   = 0x0200,
-        OptFlyInfo  = 0x0400,
+        OptFlySumm  = 0x0400,
+        OptFlyInfo  = 0x0800,
     };
 
     explicit FileLoader(QObject *parent = nullptr);

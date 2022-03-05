@@ -7,7 +7,7 @@
 #include "fileloader.h"
 #include "modspecsumm.h"
 #include "modflyers.h"
-#include "modflyers.h"
+#include "modflysumm.h"
 #include "infownd.h"
 
 class QLabel;
@@ -44,6 +44,7 @@ private:
     void initFLoadFiles();
     void initSpecSumm();
     void initFlyers();
+    void initFlySumm();
     void initStatusBar();
     bool event(QEvent *pEvent);
     void fileSelect(const QString fullname, const QString fname);
@@ -66,6 +67,7 @@ private:
     FileLoader *fcur;
     ModSpecSumm *specsumm;
     ModFlyers *flyers;
+    ModFlySumm *flysumm;
 
     QLabel* labSelFile;
     QLabel* labState;

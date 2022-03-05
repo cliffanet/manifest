@@ -17,6 +17,7 @@ SOURCES += \
     moddir.cpp \
     modfinfo.cpp \
     modflyers.cpp \
+    modflysumm.cpp \
     modspecsumm.cpp
 
 HEADERS += \
@@ -27,6 +28,7 @@ HEADERS += \
     moddir.h \
     modfinfo.h \
     modflyers.h \
+    modflysumm.h \
     modspecsumm.h
 
 FORMS += \

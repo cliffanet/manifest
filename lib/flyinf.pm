@@ -193,6 +193,61 @@ sub _view_flyers {
     return [@pers];
 }
 
+# Сводка по взлётам и количеству прыжков
+sub _view_flysumm {
+    my %info = ();
+    my @info = ();
+    my $sum = {
+        %{ c('flySummary')||{} },
+        flycnt  => 0,
+        perscnt => 0,
+        speccnt => 0,
+        summ    => 0,
+    };
+    foreach my $fly (@_) {
+        my $inf = $info{ $fly->{sheetid} };
+        if (!$inf) {
+            $inf = {
+                sheetid => $fly->{sheetid},
+                flycnt  => 0,
+                perscnt => 0,
+                speccnt => 0,
+                summ    => 0,
+            };
+            $info{ $fly->{sheetid} } = $inf;
+            push @info, $inf;
+            
+            my ($sheet) =
+                grep { $fly->{sheetid} eq $_->{id} }
+                @{ c('flySheet') || [] };
+            $sheet ||= { name => $fly->{sheetid} };
+            $inf->{name} = $sheet->{name};
+        }
+
+        $inf->{flycnt} ++;
+        $sum->{flycnt} ++;
+        
+        my $perscnt = @{ $fly->{pers}||[] };
+        $inf->{perscnt} += $perscnt;
+        $sum->{perscnt} += $perscnt;
+        
+        my $speccnt = @{ $fly->{spec}||[] };
+        $inf->{speccnt} += $speccnt;
+        $sum->{speccnt} += $speccnt;
+        
+        my $summ = 0;
+        foreach my $p (@{ $fly->{pers}||[] }) {
+            $summ += $1 if $p->{code} =~ /(\d+)/;
+        }
+        $inf->{summ}    += $summ;
+        $sum->{summ}    += $summ;
+    }
+    
+    push @info, $sum;
+    
+    return [@info];
+}
+
 # Общая инфа по взлётам, которые видны на табло
 sub _view_flyinfo {
     my @fly = ();
@@ -216,6 +271,7 @@ sub _view_flyinfo {
 my %view = (
     specsumm    => \&_view_specsumm,
     flyers      => \&_view_flyers,
+    flysumm     => \&_view_flysumm,
     flyinfo     => \&_view_flyinfo,
 );
 sub view {
