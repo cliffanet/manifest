@@ -58,6 +58,15 @@ QVariant ModFlySumm::data(const QModelIndex &index, int role) const
                 case 4:
                     return int(Qt::AlignRight | Qt::AlignVCenter);
             }
+            break;
+
+        case Qt::FontRole:
+            if (list[index.row()].issumm > 0) {
+                QFont font;
+                font.setBold(true);
+                return font;
+            }
+            break;
     }
 
     return QVariant();
@@ -74,32 +83,21 @@ void ModFlySumm::sort(int column, Qt::SortOrder order)
     sort_col = column;
     sort_ord = order;
 
+#define sortf(f) \
+    std::sort(list.begin(), list.end(), \
+        [asc] (const CItem &p1, const CItem &p2) { \
+            if (p2.issumm != p1.issumm) \
+                return p2.issumm > p1.issumm; \
+            return asc ? p2.f > p1.f : p1.f > p2.f; \
+        } \
+    );
+
     switch (column) {
-        case 0:
-            std::sort(list.begin(), list.end(),
-                [asc] (const CItem &p1, const CItem &p2) { return asc ? p2.name > p1.name : p1.name > p2.name; }
-            );
-            break;
-        case 1:
-            std::sort(list.begin(), list.end(),
-                [asc] (const CItem &p1, const CItem &p2) { return asc ? p2.flycnt > p1.flycnt : p1.flycnt > p2.flycnt; }
-            );
-            break;
-        case 2:
-            std::sort(list.begin(), list.end(),
-                [asc] (const CItem &p1, const CItem &p2) { return asc ? p2.perscnt > p1.perscnt : p1.perscnt > p2.perscnt; }
-            );
-            break;
-        case 3:
-            std::sort(list.begin(), list.end(),
-                [asc] (const CItem &p1, const CItem &p2) { return asc ? p2.speccnt > p1.speccnt : p1.speccnt > p2.speccnt; }
-            );
-            break;
-        case 4:
-            std::sort(list.begin(), list.end(),
-                [asc] (const CItem &p1, const CItem &p2) { return asc ? p2.summ > p1.summ : p1.summ > p2.summ; }
-            );
-            break;
+        case 0: sortf(name);    break;
+        case 1: sortf(flycnt);  break;
+        case 2: sortf(perscnt); break;
+        case 3: sortf(speccnt); break;
+        case 4: sortf(summ);    break;
     }
 
     emit layoutChanged();
@@ -122,6 +120,7 @@ void ModFlySumm::parseJson(const QJsonArray *_list)
             .perscnt = row["perscnt"].toInt(),
             .speccnt = row["speccnt"].toInt(),
             .summ    = row["summ"].toInt(),
+            .issumm  = row.contains("issumm") ? row["issumm"].toInt() : 0,
         };
         list.push_back(p);
     }

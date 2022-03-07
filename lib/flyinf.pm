@@ -203,6 +203,7 @@ sub _view_flysumm {
         perscnt => 0,
         speccnt => 0,
         summ    => 0,
+        issumm  => 1,
     };
     foreach my $fly (@_) {
         my $inf = $info{ $fly->{sheetid} };

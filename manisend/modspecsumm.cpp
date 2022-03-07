@@ -79,37 +79,20 @@ void ModSpecSumm::sort(int column, Qt::SortOrder order)
     sort_col = column;
     sort_ord = order;
 
+#define sortf(f) \
+    std::sort(list.begin(), list.end(), \
+        [asc] (const CItem &p1, const CItem &p2) { \
+            return asc ? p2.f > p1.f : p1.f > p2.f; \
+        } \
+    );
+
     switch (column) {
-        case 0:
-            std::sort(list.begin(), list.end(),
-                [asc] (const CSpecItem &p1, const CSpecItem &p2) { return asc ? p2.name > p1.name : p1.name > p2.name; }
-            );
-            break;
-        case 1:
-            std::sort(list.begin(), list.end(),
-                [asc] (const CSpecItem &p1, const CSpecItem &p2) { return asc ? p2.code > p1.code : p1.code > p2.code; }
-            );
-            break;
-        case 2:
-            std::sort(list.begin(), list.end(),
-                [asc] (const CSpecItem &p1, const CSpecItem &p2) { return asc ? p2.flycnt > p1.flycnt : p1.flycnt > p2.flycnt; }
-            );
-            break;
-        case 3:
-            std::sort(list.begin(), list.end(),
-                [asc] (const CSpecItem &p1, const CSpecItem &p2) { return asc ? p2.perscnt > p1.perscnt : p1.perscnt > p2.perscnt; }
-            );
-            break;
-        case 4:
-            std::sort(list.begin(), list.end(),
-                [asc] (const CSpecItem &p1, const CSpecItem &p2) { return asc ? p2.summ > p1.summ : p1.summ > p2.summ; }
-            );
-            break;
-        case 5:
-            std::sort(list.begin(), list.end(),
-                [asc] (const CSpecItem &p1, const CSpecItem &p2) { return asc ? p2.fly > p1.fly : p1.fly > p2.fly; }
-            );
-            break;
+        case 0: sortf(name);    break;
+        case 1: sortf(code);    break;
+        case 2: sortf(flycnt);  break;
+        case 3: sortf(perscnt); break;
+        case 4: sortf(summ);    break;
+        case 5: sortf(fly);     break;
     }
 
     emit layoutChanged();
@@ -128,7 +111,7 @@ void ModSpecSumm::parseJson(const QJsonArray *_list)
 
     for (const auto &item : *_list) {
         const auto row = item.toObject();
-        CSpecItem s = {
+        CItem s = {
             .name   = row["name"].toString(),
             .code   = row["code"].toString(),
             .flycnt = row["flycnt"].toInt(),

@@ -30,11 +30,12 @@ private:
         int perscnt;
         int speccnt;
         int summ;
+        int issumm;
     } CItem;
 
-    typedef QList<CItem> CPersList;
+    typedef QList<CItem> CList;
 
-    CPersList list;  //holds text entered into QTableView
+    CList list;  //holds text entered into QTableView
     int sort_col = -1;
     Qt::SortOrder sort_ord = Qt::AscendingOrder;
 };

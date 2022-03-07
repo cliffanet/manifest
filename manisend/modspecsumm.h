@@ -7,22 +7,20 @@
 
 class QJsonArray;
 
-typedef struct c_spec_item {
-    QString name;
-    QString code;
-    int flycnt;
-    int perscnt;
-    int summ;
-    QString fly;
-} CSpecItem;
-
-typedef QList<CSpecItem> CSpecList;
-
 class ModSpecSumm: public QAbstractTableModel
 {
     Q_OBJECT
 
 public:
+    typedef struct c_spec_item {
+        QString name;
+        QString code;
+        int flycnt;
+        int perscnt;
+        int summ;
+        QString fly;
+    } CItem;
+
     ModSpecSumm(QObject *parent = nullptr);
     int rowCount(const QModelIndex &parent = QModelIndex()) const override;
     int columnCount(const QModelIndex &parent = QModelIndex()) const override;
@@ -33,11 +31,13 @@ public:
 
     void clear();
     void parseJson(const QJsonArray *_list);
-    const CSpecItem *byRow(int i) { return (i>=0) && (i<list.size()) ? &list[i] : nullptr; }
+    const CItem *byRow(int i) { return (i>=0) && (i<list.size()) ? &list[i] : nullptr; }
     void recalcCode(const QString &code);
 
 private:
-    CSpecList list;  //holds text entered into QTableView
+    typedef QList<CItem> CList;
+
+    CList list;  //holds text entered into QTableView
     int sort_col = -1;
     Qt::SortOrder sort_ord = Qt::AscendingOrder;
 };

@@ -7,16 +7,6 @@
 
 class QJsonArray;
 
-typedef struct c_pers_item {
-    QString name;
-    QString code;
-    int flycnt;
-    int summ;
-    QString fly;
-} CPersItem;
-
-typedef QList<CPersItem> CPersList;
-
 class ModFlyers: public QAbstractTableModel
 {
     Q_OBJECT
@@ -34,7 +24,17 @@ public:
     void parseJson(const QJsonArray *_list);
 
 private:
-    CPersList list;  //holds text entered into QTableView
+    typedef struct c_pers_item {
+        QString name;
+        QString code;
+        int flycnt;
+        int summ;
+        QString fly;
+    } CItem;
+
+    typedef QList<CItem> CList;
+
+    CList list;  //holds text entered into QTableView
     int sort_col = -1;
     Qt::SortOrder sort_ord = Qt::AscendingOrder;
 };
