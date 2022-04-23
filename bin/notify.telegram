@@ -45,8 +45,8 @@ foreach my $l (@$log) {
     my $name = $l->{pers}->{name} || next;
     if ($l->{op} eq 'e') {
         my $prev = $l->{prev} || next;
-        # При изменении оповещаем только если изменилась высота
-        next if !exists($prev->{visota});
+        # При изменении оповещаем только если изменилась высота или доп сведения, отображаемые в телеге
+        next if !exists($prev->{visota}) && !exists($prev->{parashute});
     }
     my @chatid =
         grep { $name =~ /^$uall{$_}$/i }
