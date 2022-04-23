@@ -100,7 +100,7 @@ foreach my $l (@log) {
                 $p->{name},
                 $fly->{name},
                 $fly->{sheet}->{name},
-                $p->{visota}
+                flyinf->pers_addinfo($p)
         );
     }
     elsif ($l->{op} eq 'd') {
@@ -117,7 +117,7 @@ foreach my $l (@log) {
             $cid,
             ntf_edit => 
                 $p->{name},
-                $p->{visota},
+                flyinf->pers_addinfo($p),
                 $fly->{name},
                 $fly->{sheet}->{name}
         );

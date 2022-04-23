@@ -403,5 +403,20 @@ sub pers2log {
 }
 
 ####################################################
+##
+##  Дополнительная инфа об участнике при его оповещении
+##
+sub pers_addinfo {
+    shift() if $_[0] && (($_[0] eq __PACKAGE__) || (ref($_[0]) eq __PACKAGE__));
+    
+    my $pers = shift() || return;
+    
+    my $inf = $pers->{visota};
+    $inf .= ' {'.$pers->{parashute}.'}' if $pers->{parashute};
+    
+    return $inf;
+}
+
+####################################################
 
 1;

@@ -383,7 +383,7 @@ sub cmd_inf {
                 sprintf(c(telegram_reply => 'inf_flyqueue'),
                     $fly->{name},
                     $fly->{sheet}->{name},
-                    $_->{pers}->{visota}
+                    flyinf->pers_addinfo($_->{pers})
                 );
         }
         @flywait;
@@ -404,7 +404,7 @@ sub cmd_inf {
                 sprintf(c(telegram_reply => 'inf_flyitem'),
                     $fly->{name},
                     $fly->{sheet}->{name},
-                    $_->{pers}->{visota}
+                    flyinf->pers_addinfo($_->{pers})
                 );
             }
             @flyover;
