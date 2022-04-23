@@ -99,15 +99,15 @@ bool FileLoader::send()
         return false;
     }
 
-    QFile *file = new QFile(filename);
-    if (!file->open(QIODevice::ReadOnly)) {
+    QFile file(filename);
+    if (!file.open(QIODevice::ReadOnly)) {
         _sendErr("Не могу открыть файл");
         return false;
     }
 
     // запоминаем lastModified файла,
     // чтобы дальше он обновлялся автоматически
-    const QFileInfo finf(*file);
+    const QFileInfo finf(file);
     dtModif = finf.lastModified();
 
     QHttpMultiPart *multiPart = new QHttpMultiPart(QHttpMultiPart::FormDataType);
@@ -115,9 +115,11 @@ bool FileLoader::send()
     QHttpPart partFile;
     partFile.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"file\"; filename=\""+finf.fileName()+"\""));
     partFile.setHeader(QNetworkRequest::ContentTypeHeader, QVariant("application/octet-string"));
-    partFile.setBodyDevice(file);
-    file->setParent(multiPart); // we cannot delete the file now, so delete it with the multiPart
+    // Читаем весь файл сразу в память и закрываем,
+    // чтобы он не блокировался на запись
+    partFile.setBody(file.readAll());
     multiPart->append(partFile);
+    file.close();
 
     QHttpPart partOpt;
     partOpt.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"opt\""));
