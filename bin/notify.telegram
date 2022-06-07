@@ -47,9 +47,12 @@ foreach my $l (@$log) {
         my $prev = $l->{prev} || next;
         # При изменении оповещаем только если изменилась высота или доп сведения, отображаемые в телеге
         next if !exists($prev->{visota}) && !exists($prev->{parashute});
-        # Об уже улетевших так же не оповещаем
-        next if !$l->{fly} || $l->{fly}->{hidden} || $l->{fly}->{closed};
     }
+    
+    # Об уже улетевших так же не оповещаем
+    my $fly = flyinf->fstate($l->{fly}) || next;
+    next if $fly->{hidden} || $fly->{closed};
+    
     my @chatid =
         grep { $name =~ /^$uall{$_}$/i }
         keys %uall;
