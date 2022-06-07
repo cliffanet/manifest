@@ -7,6 +7,7 @@
 #include <QDateTime>
 
 class QJsonArray;
+class QTimer;
 
 typedef struct c_finfo_item {
     QString sheetname;
@@ -41,6 +42,7 @@ private:
     CFInfoList list;  //holds text entered into QTableView
     QDateTime tmParse;
     bool flash;
+    QTimer *tmrUpd;
 };
 
 #endif // MODFINFO_H

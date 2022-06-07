@@ -9,6 +9,10 @@ ModFInfo::ModFInfo(QObject *parent)
     : QAbstractTableModel(parent)
 {
     tmParse = QDateTime::currentDateTime();
+
+    tmrUpd = new QTimer(this);
+    connect(tmrUpd, &QTimer::timeout, this, &ModFInfo::updateModeStr);
+
     flash = false;
 }
 
@@ -159,8 +163,15 @@ void ModFInfo::updateModeStr()
 
     if (needTimer) {
         flash = not flash;
-        QTimer::singleShot(needFlash ? 440 : 1000, this, &ModFInfo::updateModeStr);
+        int interval = needFlash ? 500 : 1000;
+        if (tmrUpd->interval() != interval)
+            tmrUpd->setInterval(interval);
+        if (!tmrUpd->isActive())
+            tmrUpd->start();
     }
+    else
+    if (tmrUpd->isActive())
+        tmrUpd->stop();
 
     // Обновляем отображение в таблице
     emit layoutChanged();
