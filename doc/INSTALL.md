@@ -341,13 +341,13 @@ Password:📝 <b>пароль-для-root</b>
         
     	create link static L1 pptp
     	set link action bundle B1
-    	set auth authname manifest
-    	set auth password ffman
+    	set auth authname <пользователь>
+    	set auth password <пароль>
     	set link max-redial 0
     	set link redial-delay 20
     	set link mtu 1400
     	set link keep-alive 20 75
-    	set pptp peer gw.northnet.ru
+    	set pptp peer <host>
     	set pptp disable windowing
         
     	open
