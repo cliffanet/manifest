@@ -87,7 +87,7 @@ sub _root :
                     srcname => $srcname,
                     flylist => $flylist,
             },
-            3600
+            3600*4
         ) || return rerr('Memcached write');
     }
 
