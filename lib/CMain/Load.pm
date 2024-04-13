@@ -20,6 +20,19 @@ sub rerr {
     return 'ERROR '.$s;
 }
 
+sub srcfname {
+    my($sec, $min, $hour, $mday, $mon, $year, $wday, $yday, $isdst) = localtime(time());
+    $mon++;
+    $year+=1900;
+    my $rand = int rand(255);
+    # имя файла должно быть уникальным,
+    # т.к. часто загрузка дублируется (одновременно две загрузки),
+    # и пока первый обрабатывается (интервал между завершением
+    # сохранения файла и началом его разархивирования),
+    # второй процесс грохает тот же файл, но данные ещё не успевает залить
+    return sprintf("src.%04d-%02d-%02d_%02d%02d%02d_%02x.xlsx", $year, $mon, $mday, $hour, $min, $sec, $rand);
+}
+
 sub _root :
         ReturnText
 {
@@ -31,12 +44,12 @@ sub _root :
     
     # Получение файла
     # Excel::Reader::XLSX не умеет работать с хендлами, только с физическим файлом
-    my $fname = $dir.'/src.xlsx';
+    my $fname = $dir . '/' . srcfname();
     my $p = wparam(file => { file => $fname });
     
     my $srcname = $p->str('file');
     my $size = -s $fname;
-    debug('file: len=%d, name=%s', $size, $srcname);
+    debug('file: len=%d, name=%s, fname=%s', $size, $srcname, $fname);
     
     $size || return rerr('No file to load');
     

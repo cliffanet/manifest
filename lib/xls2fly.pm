@@ -32,6 +32,12 @@ sub err {
 ##
 ##  Базовый парсинг исходного файла
 ##
+sub rmtmp {
+    my $tmpdir = shift() || return;
+    return if !(-e $tmpdir);
+    debug('remove files from %s', $tmpdir);
+    system('rm -rf '.$tmpdir);
+}
 sub parse {
     shift() if $_[0] && (($_[0] eq __PACKAGE__) || (ref($_[0]) eq __PACKAGE__));
     my $log = log_prefix('xls2fly->parse()');
@@ -46,9 +52,12 @@ sub parse {
     
     my $workbook = eval { $reader->read_file( $fsrc ) };
     
-    $workbook
-        || return err('[Excel::Reader::XLSX->read_file()] %s', $reader->error() || $@ || 'read fail');
     my $tmpdir = $reader->{_package_dir};
+    if (!$workbook) {
+        undef $reader;
+        rmtmp($tmpdir);
+        return err('[Excel::Reader::XLSX->read_file()] %s', $reader->error() || $@ || 'read fail');
+    }
     
     my $sheetno = 0;
     # Какие данные нам нужны
@@ -296,10 +305,7 @@ sub parse {
     # Завершаем
     undef $workbook;
     undef $reader;
-    if (-e $tmpdir) {
-        debug('remove files from %s', $tmpdir);
-        system('rm -rf '.$tmpdir);
-    }
+    rmtmp($tmpdir);
     undef $error;
     
     # Возвращаем нужные данные
