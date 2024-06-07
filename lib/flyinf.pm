@@ -54,7 +54,7 @@ sub fstate {
         # Взлёт, помеченный как "улетевший"
         if ((my $tm = $fly->{meta_time}) && ($fly->{meta_prev} !~ /^\s*(\d+)\s*$/)) {
             $fly->{closed_recently} = $time - $tm;
-            $fly->{closed} = 1 if $fly->{closed_recently} > 600;
+            $fly->{closed} = 1 if $fly->{closed_recently} > 1500;
         }
         else {
             $fly->{closed} = 1;
