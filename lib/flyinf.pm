@@ -69,7 +69,7 @@ sub fstate {
             }
             else {
                 $fly->{closed_recently} = $time - $tm;
-                $fly->{closed} = 1 if $fly->{closed_recently} > 600;
+                $fly->{closed} = 1 if $fly->{closed_recently} > 1500;
             
             }
         }
@@ -95,7 +95,7 @@ sub fstate {
         $fly->{state} = 'b';
     }
     elsif (my $closer = $fly->{closed_recently}) {
-        $fly->{state} = $fly->{closed_recently} > 900 ? 'h' : 't';
+        $fly->{state} = $fly->{closed_recently} > 2400 ? 'h' : 't';
     }
     elsif ($fly->{closed}) {
         $fly->{state} = 'h';
