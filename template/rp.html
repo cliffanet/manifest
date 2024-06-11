@@ -1,0 +1,51 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML  4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta http-equiv="refresh" content="10" />
+    <meta http-equiv="pragma" content="no-cache">
+        
+    <meta name="viewport" content="width=device-width ,   user-scalable=0,  initial-scale=1, maximum-scale=1" />
+    <link type="text/css" rel="stylesheet" media="all" href="/work.css" />
+
+    <title>ВАТУЛИНО :: Взлеты</title>
+</head>
+
+<body>
+    <div class="test"></div>
+    <div class='ob'>
+        <div class='refresh'>Текущее время: [% DATETIME tmnow %][% IF tmload %] / Изменено: [% DATETIME tmload %][% END %] / [%  ip %]</div>
+        <div class='ob2'>
+        
+        [% FOREACH sheet = sheetlist %]
+            [% FOREACH fly = sheet.flylist %]
+            <div class='wrapperrp'>
+                <h1>
+                    [% IF fly.before %]<u>[% END %]
+                    [% fly.name %] ([% sheet.name %])
+                    [% IF fly.closed_recently %] - улетел[% IF fly.closed_recently >= 120 %] ([% int(fly.closed_recently / 60) %] мин)[% END %][% END %]
+                    [% IF fly.before %] - [% IF fly.before > 60 %]готовность [% END %][ [% IF fly.before > 60 %][% round(fly.before / 60) %] мин[% ELSE %]На старт![% END %] ]</u>[% END %]
+                </h1>
+            	<table cellpadding='0' cellspacing='0' border='1' style="width: 100%; border-color: [% IF fly.closed_recently %]#FFFFFF[% ELSE %][% sheet.color %][% END %]">
+                [% FOREACH pers = fly.pers %]
+            		<tr[% IF pers.group %] class="groupped"[% END %]>
+            			<td width="18" align="right">[% pers.i %]</td>
+            			<td width="130">[% pers.name %][% IF !pers.name && pers.group %]<i>-резерв-</i></i>[% END %]</td>
+            			<td width="130">[% pers.parashute %]</td>
+            			<td width="38" align="right">[% pers.visota %]</td>
+                        <td width="130">[% pers.op %][% IF pers.op && pers.zp %] / [% END %][% pers.zp %]</td>
+            		</tr>
+                [% END %]
+                </table>
+            </div>
+            [% END # FOREACH fly = sheet.flylist %]
+
+            <div id="clear"></div>
+        [% END # FOREACH sheet = sheetlist %]
+        </div>
+    </div>
+
+<!-- Time: [% SCRIPT_TIME %] ([% RUNCOUNT %]) -->
+
+</body>
+</html>

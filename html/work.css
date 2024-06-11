@@ -9,7 +9,7 @@ body {
 }
 
 tr {
-	height: 13px;
+	height: 16px;
 	font-size: 0.650em;
 	font-weight: 100;
 }
@@ -55,6 +55,13 @@ h1{
 
 .wrapper {
 	width: 19%;
+	margin-left: 1%;
+	float: left;
+	/*outline: 1px solid blue;*/
+}
+
+.wrapperrp {
+	width: 24%;
 	margin-left: 1%;
 	float: left;
 	/*outline: 1px solid blue;*/

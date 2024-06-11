@@ -45,7 +45,7 @@ sub fstate {
     my $fly = shift() || return;
     
     my $time = time();
-    $fly->{$_} = 0 foreach qw/hidden closed closed_recently/;
+    $fly->{$_} = 0 foreach qw/hidden closed closerp closed_recently/;
     if ($fly->{meta} =~ /[\-x]/) {
         # скрытый взлёт
         $fly->{hidden} = 1;
@@ -54,10 +54,12 @@ sub fstate {
         # Взлёт, помеченный как "улетевший"
         if ((my $tm = $fly->{meta_time}) && ($fly->{meta_prev} !~ /^\s*(\d+)\s*$/)) {
             $fly->{closed_recently} = $time - $tm;
-            $fly->{closed} = 1 if $fly->{closed_recently} > 1500;
+            $fly->{closed} = 1 if $fly->{closed_recently} > 600;
+            $fly->{closerp} = 1 if $fly->{closed_recently} > 1500;
         }
         else {
             $fly->{closed} = 1;
+            $fly->{closerp} = 1;
         }
     }
     elsif ($fly->{meta} =~ /^\s*(\d+)\s*$/) {
@@ -69,12 +71,13 @@ sub fstate {
             }
             else {
                 $fly->{closed_recently} = $time - $tm;
-                $fly->{closed} = 1 if $fly->{closed_recently} > 1500;
-            
+                $fly->{closed} = 1 if $fly->{closed_recently} > 600;
+                $fly->{closerp} = 1 if $fly->{closed_recently} > 1500;
             }
         }
         else {
             $fly->{closed} = 1;
+            $fly->{closerp} = 1;
         }
     }
     

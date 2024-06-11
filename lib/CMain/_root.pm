@@ -7,6 +7,8 @@ use Cache::Memcached::Fast;
 sub _root :
         Simple
 {
+    my ($tmpl, $filt) = @_;
+
     # Получаем предыдущий список
     my $memd = Cache::Memcached::Fast->new( c('MemCached') )
         || return 'main';
@@ -32,9 +34,10 @@ sub _root :
     
     # Уберём все улетевшие.
     # Сделать это лучше до распределения по страницам
-    @$flylist =
-        grep { !$_->{closed} && !$_->{hidden} }
-        @$flylist;
+    $filt ||= sub {
+        return grep { !$_->{closed} && !$_->{hidden} } @_;
+    };
+    @$flylist = $filt->( @$flylist );
     
     # Распределяем взлёты по страницам
     my @sheet =
@@ -69,10 +72,21 @@ sub _root :
     }
     
     return
-        'main',
+        $tmpl || 'main',
         tmload      => $flyday->{time},
         flylist     => $flylist,
         sheetlist   => \@sheet;
+}
+
+sub rp :
+        Simple
+{
+    return _root(
+        'rp',
+        sub {
+            return grep { !$_->{closerp} && !$_->{hidden} } @_;
+        }
+    );
 }
 
 1;
