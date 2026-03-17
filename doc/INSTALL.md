@@ -237,7 +237,7 @@ Password:📝 <b>пароль-для-root</b>
     hostname="manifest.cliffa.net"
     
     ifconfig_DEFAULT="DHCP"
-    ifconfig_genet0_alias0="inet 10.0.1.240/24"
+    ifconfig_genet0_alias0="inet 10.0.0.240/24"
     ifconfig_genet0_alias1="inet 1.1.1.240/32"
     
     sshd_enable="YES"
