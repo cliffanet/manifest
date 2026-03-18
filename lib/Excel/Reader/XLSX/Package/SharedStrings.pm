@@ -127,7 +127,10 @@ sub _get_string {
 
     # Return an empty string is the index is out of bounds.
     return '' if $index < 0;
-    return '' if $index >= $self->{_unique_count};
+    # стандартный офис в новых маках (наша локализация) почему-то
+    # не вписывает параметр uniqueCount при сохранении, из-за
+    # этого не грузится ни одна строка
+    #return '' if $index >= $self->{_unique_count};
 
     my $string = $self->{_strings}->[$index];
 

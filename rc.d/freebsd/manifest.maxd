@@ -1,0 +1,28 @@
+#!/bin/sh
+#
+# $FreeBSD: maxd (manifest), v1.0 2021/12/24 23:10:55 flood Exp 
+#
+# PROVIDE: manifest
+# REQUIRE: NETWORKING
+#
+# Add the following line to /etc/rc.conf to enable manifest_maxd:
+#
+# manifest_maxd_enable="YES"
+#
+
+manifest_maxd_enable="${manifest_maxd_enable-NO}"
+. /etc/rc.subr
+
+
+name=manifest_maxd
+rcvar=`set_rcvar`
+
+prefix=/home/manifest
+procname=Manifest-Max-Bot
+pidfile=/var/run/manifest/maxd.pid
+required_files="${prefix}/redefine.conf"
+command="${prefix}/bin/maxd"
+
+load_rc_config ${name}
+
+run_rc_command "$1"

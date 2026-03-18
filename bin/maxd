@@ -6,41 +6,33 @@ use utf8;
 
 use Clib::Proc qw|script1 lib|;
 use Clib::Const ':utf8';
-use Clib::Log 'log_telegramd';
+use Clib::Log 'log_maxd';
 
 use Clib::DT;
 
-use WWW::Telegram::BotAPI;
 use Cache::Memcached::Fast;
 use RedisDB;
 use Encode;
 
+use MaxAPI;
 use flyinf;
 
 $SIG{__DIE__} = sub { error('DIE: %s', $_) for @_ };
 
-# наш токен
-my $token = c('telegram_token');
-if (!$token) {
-    error('`telegram_token` not defined');
-    exit -1;
-}
-
 # можно уходить в фон
 Clib::Proc::daemon(
-    pidfile => (c('pidPath')||'.').'/telegramd.pid',
-    procname => 'Manifest-Telegram-Bot',
-    no => c('telegramd_nodaemon'),
+    pidfile => (c('pidPath')||'.').'/maxd.pid',
+    procname => 'Manifest-Max-Bot',
+    no => c('maxd_nodaemon'),
 ) || exit -1;
 
-my $api = WWW::Telegram::BotAPI->new(token => $token, api_url => c('telegram_api_url')) || exit -1;
-my $isreq;
+my $isrun = 1;
 Clib::Proc::sigint(sub { 
     log('Interrupted');
-    if ($api) {
-        undef $api;
+    if ($isrun) {
+        undef $isrun;
     }
-    if ($isreq) {
+    if (MaxAPI->isreq()) {
         # Костыль для выхода из запроса.
         die 'Terminate';
     }
@@ -48,93 +40,103 @@ Clib::Proc::sigint(sub {
 
 # Подключаемся к API и проверяем авторизацию
 my $me;
-while ($api) {
-    $me = request('getMe');
-    $me || exit -1;
+while ($isrun) {
+    $me = MaxAPI->me() || exit -1;
     
-    last if $me->{ok} && $me->{result} && $me->{result}->{id};
+    last if $me->{is_bot} && $me->{user_id};
 
     # Запуститься процесс может, когда у нас нет соединения с интернет,
     # поэтому не выходим, а ждём, когда появятся данные
     # с интервалом 5-10 минут
-    error('Not valid token or Telegram-API fail: %s', $me->{error});
+    error('Not valid token or Max-API fail');
     sleep 300;
 }
 
 # скидываем все уже имеющиеся сообщения
-my @off = ();
-if ($api) {
-    my $upd = request('getUpdates');
-    if (!$upd->{ok} || !$upd->{result}) {
-        error('Can\'t getUpdates on init: %s', $me->{error});
+my $mark = '';
+if ($isrun) {
+    my $upd = MaxAPI->updates(timeout => 1);
+    if (!$upd || !$upd->{marker} || !$upd->{updates}) {
+        error('Can\'t get-updates on init');
         exit -1;
     }
-    foreach my $u (@{ $upd->{result} }) {
-        @off = (offset => $u->{update_id}+1);
-        my $msg = $u->{message} || next;
-        debug('Skip msg[%d] on %s from %s: %s', 
-            $msg->{message_id}, Clib::DT::datetime($msg->{date}), 
-            $msg->{from}->{first_name} || '['.$msg->{from}->{id}.']',
-            $msg->{text});
+    $mark = $upd->{marker};
+    foreach my $u (@{ $upd->{updates} || [] }) {
+        if (my $msg = $u->{message}) {
+            debug('Skip %s[%s] on %s from %s: %s',
+                $u->{update_type},
+                ($msg->{body}||{})->{mid}, Clib::DT::datetime(int($msg->{timestamp}/1000)),
+                $msg->{sender}->{first_name} || '['.$msg->{sender}->{user_id}.']',
+                ($msg->{body}||{})->{text}
+            );
+        }
+        else {
+            debug('Skip %s on %s from %s',
+                $u->{update_type}, Clib::DT::datetime(int($u->{timestamp}/1000)),
+                $u->{user} ? $u->{user}->{first_name} : '['.($u->{user_id}||'?').']'
+            );
+        }
     }
 }
 
-log('Starting with %s', $me && $me->{result} ? $me->{result}->{first_name}||$me->{result}->{username} : '-unknown-');
+log('Starting with [%s] %s', $me->{username}, $me->{first_name});
 
 # основной цикл
 my %wait = ();
-while ($api) {
-    #debug(join ': ', @off, $api);
-    my $upd = request(getUpdates => @off, timeout => 5 );
-    if (!$upd->{ok} || !$upd->{result}) {
-        error('getUpdates fail: %s', $upd->{error});
-        $api || last;
+while ($isrun) {
+    my $upd = MaxAPI->updates(timeout => 15, mark => $mark);
+    if (!$upd || !$upd->{marker} || !$upd->{updates}) {
+        error('get-updates fail');
+        $isrun || last;
         sleep 60;
         next;
     }
-    foreach my $u (@{ $upd->{result} }) {
-        @off = (offset => $u->{update_id}+1);
+    $mark = $upd->{marker};
+    foreach my $u (@{ $upd->{updates} || [] }) {
         my $msg = $u->{message} || next;
-        log('Message[%d] on %s from %s: %s',
-            $msg->{message_id}, Clib::DT::datetime($msg->{date}), 
-            $msg->{from}->{first_name} || '['.$msg->{from}->{id}.']',
-            $msg->{text});
-        my $chat = $msg->{chat} || next;
-        my $chatid = $chat->{id};
+        my $txt = ($msg->{body}||{})->{text} || next;
+        my $user = $msg->{sender} || next;
+        my $userid = $user->{user_id};
+        log('%s[%s] on %s from %s: %s',
+            $u->{update_type},
+            ($msg->{body}||{})->{mid}, Clib::DT::datetime(int($msg->{timestamp}/1000)),
+            $user->{first_name} || '['.int($userid).']',
+            $txt
+        );
         
-        if ($msg->{text} =~ /^\/?(?:ком(анд)|help|start?)/i) {
-            reply($chatid, 'help');
+        if ($txt =~ /^\/?(?:ком(анд)|help|start?)/i) {
+            reply($userid, 'help');
         }
-        elsif ($msg->{text} =~ /^\/?(?:я|im?)(\s+(.+))?$/i) {
+        elsif ($txt =~ /^\/?(?:я|im?)(\s+(.+))?$/i) {
             if (defined $1) {
-                delete $wait{$chatid};
-                cmd_im($chat, $1);
+                delete $wait{$userid};
+                cmd_im($user, $1);
             }
             else {
-                $wait{$chatid} = 'im';
-                reply($chatid, 'im_waitname');
+                $wait{$userid} = 'im';
+                reply($userid, 'im_waitname');
             }
         }
-        elsif ($msg->{text} =~ /^\/?(?:уд(алить)?|unreg|del(ete)?)/i) {
-            delete $wait{$chatid};
-            cmd_unreg($chat);
+        elsif ($txt =~ /^\/?(?:уд(алить)?|unreg|del(ete)?)/i) {
+            delete $wait{$userid};
+            cmd_unreg($user);
         }
-        elsif ($msg->{text} =~ /^\/?(?:инф(ормация)?|inf(o)?)/i) {
-            delete $wait{$chatid};
-            cmd_inf($chat);
+        elsif ($txt =~ /^\/?(?:инф(ормация)?|inf(o)?)/i) {
+            delete $wait{$userid};
+            cmd_inf($user);
         }
-        elsif ($msg->{text} =~ /^\/?(?:ппу|ppu)/i) {
-            delete $wait{$chatid};
-            cmd_ppu($chat);
+        elsif ($txt =~ /^\/?(?:ппу|ppu)/i) {
+            delete $wait{$userid};
+            cmd_ppu($user);
         }
-        elsif (my $w = $wait{$chatid}) {
+        elsif (my $w = $wait{$userid}) {
             my $ok = -1;
             if ($w eq 'im') {
-                $ok = cmd_im($chat, $msg->{text});
+                $ok = cmd_im($user, $txt);
             }
             
             if ($ok) {
-                delete $wait{$chatid};
+                delete $wait{$userid};
             }
         }
     }
@@ -142,26 +144,9 @@ while ($api) {
 
 log('Finished');
 
-# Запрос в API Telegram
-sub request {
-    my $method = shift();
-    if (!$api) {
-        error('api not inited');
-        return;
-    }
-    local $SIG{__DIE__} = undef;
-    
-    $isreq = 1;
-    my $r = eval { $api->api_request($method, @_ ? { @_ } : ()) };
-    undef $isreq;
-    
-    $r ||= { error => $@ || 'Unknown error' };
-    return $r;
-}
-
 # Ответ в чат с пользователем
 sub reply {
-    my $chatid = shift();
+    my $userid = shift();
     
     my $msg = shift();
     if (my $s = c(telegram_reply => $msg)) {
@@ -170,27 +155,22 @@ sub reply {
     
     $msg = sprintf($msg, @_) if @_;
     
-    my $r = request(sendMessage => 
-        chat_id => $chatid,
-        text    => $msg,
-    );
+    my $r = MaxAPI->msgtxt($userid, $msg);
     
     if ($r) {
-        if (my $err = $r->{error}) {
-            error('Can\'t send to chatid=%d: %s', $chatid, $err);
-        }
-        elsif ($r->{result}) {
-            debug('Send[chatid=%d] %s', $chatid, $msg);
-        }
+        debug('Send[userid=%d] %s', $userid, $msg);
+    }
+    else {
+        error('Can\'t send to userid=%d', $userid);
     }
     
-    return $r && $r->{result} ? 1 : 0;
+    return $r && $r->{message} ? 1 : 0;
 }
 
 # Соединение с Redis
 my $redis;
 sub redis {
-    my $chatid = shift;
+    my $userid = shift;
     
     $redis ||= RedisDB->new(
                 raise_error => 0,
@@ -200,7 +180,7 @@ sub redis {
             );
     
     if (!$redis) {
-        reply($chatid, 'db') if $chatid;
+        reply($userid, 'db') if $userid;
         return;
     }
     
@@ -213,12 +193,12 @@ sub redis {
     
     if (ref($ret) =~ /RedisDB\:\:Error/) {
         error('[Redis ERROR] : %s', $ret->as_string);
-        reply($chatid, 'db') if $chatid;
+        reply($userid, 'db') if $userid;
         return;
     }
     elsif (!$ret && $@) {
         error('[Redis EXCEPTION] : %s', $@);
-        reply($chatid, 'db') if $chatid;
+        reply($userid, 'db') if $userid;
         return;
     }
     
@@ -235,13 +215,14 @@ sub redis {
 
 # Регистрация в системе
 sub cmd_im {
-    my ($chat, $name) = @_;
+    my ($user, $name) = @_;
     
     # проверка формата указанного имени
     my @name;
     if (!defined($name) ||
         !(@name = ($name =~ /^\s*(([a-zA-Zа-яА-ЯёЁ]+)(?:\s*([a-zA-Zа-яА-ЯёЁ]\.(?:[a-zA-Zа-яА-ЯёЁ]\.)?))?)\s*$/))) {
-        reply($chat->{id}, 'im_format');
+        reply($user->{user_id}, 'im_format');
+        debug('name: %s', $name);
         return;
     }
     
@@ -256,71 +237,71 @@ sub cmd_im {
     }
     
     # Если есть уже регистрация, мы её сначала удалим
-    if (redis($chat->{id}, hexists => uname  => $chat->{id})) {
-        cmd_unreg($chat) || return;
+    if (redis($user->{user_id}, hexists => mname  => $user->{user_id})) {
+        cmd_unreg($user) || return;
     }
     
     # Регистрируемся в базе пользователей
-    redis($chat->{id}, hset => uname  => $chat->{id} => $full) || return;
-    redis($chat->{id}, hset => uregexp=> $chat->{id} => $regexp) || return;
+    redis($user->{user_id}, hset => mname  => $user->{user_id} => $full) || return;
+    redis($user->{user_id}, hset => mregexp=> $user->{user_id} => $regexp) || return;
     
     # Ответ пользователю об успехе
-    reply($chat->{id}, 'im_ok', $name[0]);
+    reply($user->{user_id}, 'im_ok', $name[0]);
     
     1;
 }
 
 # Отмена регистрации в системе
 sub cmd_unreg {
-    my ($chat) = @_;
+    my ($user) = @_;
     
-    my $name = redis($chat->{id}, hget => uname  => $chat->{id});
+    my $name = redis($user->{user_id}, hget => mname  => $user->{user_id});
     
     # Если нет регистрации в этом чате, то надо об этом сообщить
     if (!defined($name)) {
-        reply($chat->{id}, 'unreg_noexists');
+        reply($user->{user_id}, 'unreg_noexists');
         return;
     }
     
     # Удаляем из базы пользователей
-    redis($chat->{id}, hdel => uregexp=> $chat->{id}) || return;
-    redis($chat->{id}, hdel => uname  => $chat->{id}) || return;
+    redis($user->{user_id}, hdel => mregexp=> $user->{user_id}) || return;
+    redis($user->{user_id}, hdel => mname  => $user->{user_id}) || return;
     
     # Ответ пользователю об успехе
-    reply($chat->{id}, 'unreg_ok', $name);
+    reply($user->{user_id}, 'unreg_ok', $name);
     
     1;
 }
 
 # Получение информации о взлётах
 sub cmd_inf {
-    my ($chat) = @_;
+    my ($user) = @_;
     
-    my $name = redis($chat->{id}, hget => uname  => $chat->{id});
+    my $name = redis($user->{user_id}, hget => mname  => $user->{user_id});
     
     # Если нет регистрации в этом чате, то надо об этом сообщить
     if (!defined($name)) {
-        reply($chat->{id}, 'inf_noexists');
+        reply($user->{user_id}, 'inf_noexists');
         return;
     }
     
     # Нам нужна регулярка, по которой мы будем искать себя во взлётах
-    my $regexp = redis($chat->{id}, hget => uregexp  => $chat->{id});
+    my $regexp = redis($user->{user_id}, hget => mregexp  => $user->{user_id});
     if (!$regexp) {
-        reply($chat->{id}, 'db');
+        reply($user->{user_id}, 'db');
         return;
     }
     
     # Получаем список взлётов
     my $memd = Cache::Memcached::Fast->new( c('MemCached') );
     if (!$memd) {
-        reply($chat->{id}, 'db');
+        reply($user->{user_id}, 'db');
         return;
     }
     
     my $flyday = $memd->get('flyday');
     if ((ref($flyday) ne 'HASH') || (ref($flyday->{flylist}) ne 'ARRAY')) {
-        reply($chat->{id}, 'inf_flynull');
+        reply($user->{user_id}, 'inf_flynull');
         return;
     }
     
@@ -426,18 +407,18 @@ sub cmd_inf {
             c(telegram_reply => 'inf_nopay');
     
     # Отвечаем в чат
-    return reply($chat->{id}, join("\n", @reply));
+    return reply($user->{user_id}, join("\n", @reply));
 }
 
 # стенограмма ППУ
 sub cmd_ppu {
-    my ($chat) = @_;
+    my ($user) = @_;
     
     my $file = c('ppufile') || return;
     
     my $fh;
     if (!(-e $file) || !open($fh, $file)) {
-        return reply($chat->{id}, c(telegram_reply => 'ppu_noexists'));
+        return reply($user->{user_id}, c(telegram_reply => 'ppu_noexists'));
     }
     
     local $/ = undef;
@@ -446,10 +427,10 @@ sub cmd_ppu {
     close $fh;
     
     if (!$data) {
-        return reply($chat->{id}, c(telegram_reply => 'ppu_noexists'));
+        return reply($user->{user_id}, c(telegram_reply => 'ppu_noexists'));
     }
     
-    return reply($chat->{id}, $data);
+    return reply($user->{user_id}, $data);
 }
 
 ##==========================================================

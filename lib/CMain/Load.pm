@@ -142,7 +142,7 @@ sub send_messages {
         eval { JSON::XS->new->utf8->pretty(0)->canonical->encode([ @_ ]) };
     $log || return;
     
-    foreach my $type (qw/telegram/) {
+    foreach my $type (qw/max telegram/) {
         my $cmd = Clib::Proc::ROOT().'/bin/notify.'.$type;
         my $fh;
         if (!open($fh, "|$cmd")) {

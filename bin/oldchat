@@ -36,7 +36,7 @@ if (!$token) {
 }
 
 # Подключаемся к API и проверяем авторизацию
-my $api = WWW::Telegram::BotAPI->new(token => $token);
+my $api = WWW::Telegram::BotAPI->new(token => $token, api_url => c('telegram_api_url'));
 my $me = request('getMe');
 if (!$me->{ok} || !$me->{result} || !$me->{result}->{id}) {
     error('Not valid token or Telegram-API fail: %s', $me->{error});

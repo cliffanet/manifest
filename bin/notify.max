@@ -11,9 +11,9 @@ use Clib::Log 'log_notify';
 use JSON::XS;
 use Encode;
 
-use WWW::Telegram::BotAPI;
 use RedisDB;
 
+use MaxAPI;
 use flyinf;
 
 $SIG{__DIE__} = sub { error('DIE: %s', $_) for @_ };
@@ -21,14 +21,14 @@ $SIG{__DIE__} = sub { error('DIE: %s', $_) for @_ };
 ###########################################################
 ###########################################################
 ###########################################################
-my $p = log_prefix('telegram');
+my $p = log_prefix('max');
 my $log = eval { JSON::XS->new->utf8->decode(join '', <STDIN>) };
 
 wrong_format() if ref($log) ne 'ARRAY';
 wrong_format() if grep { (ref($_) ne 'HASH') || !$_->{op} || (ref($_->{pers}) ne 'HASH') } @$log;
 
 # Пользовательские регулярки
-my $uall = redis(hgetall => 'uregexp');
+my $uall = redis(hgetall => 'mregexp');
 if (ref($uall) ne 'ARRAY') {
     error('Can\'t get user\'s REGEXP');
     exit -1;
@@ -39,7 +39,7 @@ if (!@$uall) {
 }
 my %uall = @$uall;
 
-# Для всех строк логов подбираем chatid
+# Для всех строк логов подбираем userid
 my @log = ();
 foreach my $l (@$log) {
     my $name = $l->{pers}->{name} || next;
@@ -53,14 +53,14 @@ foreach my $l (@$log) {
     my $fly = flyinf->fstate($l->{fly}) || next;
     next if $fly->{hidden} || $fly->{closed};
     
-    my @chatid =
+    my @userid =
         grep { $name =~ /^$uall{$_}$/i }
         keys %uall;
     push @log,
         map {
-            { %$l, chatid => $_ }
+            { %$l, userid => $_ }
         }
-        @chatid;
+        @userid;
 }
 
 if (!@log) {
@@ -68,30 +68,22 @@ if (!@log) {
     exit;
 }
 
-# наш токен
-my $token = c('telegram_token');
-if (!$token) {
-    error('`telegram_token` not defined');
-    exit -1;
-}
-
 # Подключаемся к API и проверяем авторизацию
-my $api = WWW::Telegram::BotAPI->new(token => $token, api_url => c('telegram_api_url'));
-my $me = request('getMe');
-if (!$me->{ok} || !$me->{result} || !$me->{result}->{id}) {
-    error('Not valid token or Telegram-API fail: %s', $me->{error});
+my $me = MaxAPI->me();
+if (!$me || !$me->{is_bot} || !$me->{user_id}) {
+    error('Not valid token or Max-API fail');
     exit -1;
 }
 
 # отправляем сообщения
 foreach my $l (@log) {
-    my $cid = $l->{chatid} || next;
+    my $uid = $l->{userid} || next;
     my $p = $l->{pers} || next;
     my $fly = flyinf->fsheet($l->{fly}) || next;
     
     if ($l->{op} eq 'D') {
         reply(
-            $cid,
+            $uid,
             ntf_dup => 
                 $p->{name},
                 $fly->{name},
@@ -100,7 +92,7 @@ foreach my $l (@log) {
     }
     elsif ($l->{op} eq 'a') {
         reply(
-            $cid,
+            $uid,
             ntf_add => 
                 $p->{name},
                 $fly->{name},
@@ -110,7 +102,7 @@ foreach my $l (@log) {
     }
     elsif ($l->{op} eq 'd') {
         reply(
-            $cid,
+            $uid,
             ntf_del => 
                 $p->{name},
                 $fly->{name},
@@ -119,7 +111,7 @@ foreach my $l (@log) {
     }
     elsif ($l->{op} eq 'e') {
         reply(
-            $cid,
+            $uid,
             ntf_edit => 
                 $p->{name},
                 flyinf->pers_addinfo($p),
@@ -129,7 +121,7 @@ foreach my $l (@log) {
     }
     elsif (($l->{op} eq 'b') && (!defined($l->{beftime}) || $l->{beftime} > 0)) {
         reply(
-            $cid,
+            $uid,
             ntf_beftime => 
                 $p->{name},
                 $l->{beftime},
@@ -139,7 +131,7 @@ foreach my $l (@log) {
     }
     elsif ($l->{op} eq 'b') {
         reply(
-            $cid,
+            $uid,
             ntf_flynow => 
                 $p->{name},
                 $fly->{name},
@@ -156,21 +148,9 @@ sub wrong_format {
     exit -1;
 }
 
-sub request {
-    my $method = shift();
-    if (!$api) {
-        error('api not inited');
-        return;
-    }
-    local $SIG{__DIE__} = undef;
-    my $r = eval { $api->api_request($method, @_ ? { @_ } : ()) };
-    $r ||= { error => $@ || 'Unknown error' };
-    return $r;
-}
-
 # Ответ в чат с пользователем
 sub reply {
-    my $chatid = shift();
+    my $userid = shift();
     
     my $msg = shift();
     if (my $s = c(telegram_reply => $msg)) {
@@ -179,21 +159,16 @@ sub reply {
     
     $msg = sprintf($msg, @_) if @_;
     
-    my $r = request(sendMessage => 
-        chat_id => $chatid,
-        text    => $msg,
-    );
+    my $r = MaxAPI->msgtxt($userid, $msg);
     
     if ($r) {
-        if (my $err = $r->{error}) {
-            error('Can\'t send to chatid=%d: %s', $chatid, $err);
-        }
-        elsif ($r->{result}) {
-            debug('Send[chatid=%d] %s', $chatid, $msg);
-        }
+        debug('Send[userid=%d] %s', $userid, $msg);
+    }
+    else {
+        error('Can\'t send to userid=%d', $userid);
     }
     
-    return $r && $r->{result} ? 1 : 0;
+    return $r && $r->{message} ? 1 : 0;
 }
 
 # Соединение с Redis
