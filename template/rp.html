@@ -15,7 +15,7 @@
     <div class="test"></div>
     <div class='ob'>
         <div class='refresh'>Текущее время: [% DATETIME tmnow %][% IF tmload %] / Изменено: [% DATETIME tmload %][% END %] / [%  ip %]</div>
-        <div class='ob2'>
+        <div class='ob2rp'>
         
         [% FOREACH sheet = sheetlist %]
             [% FOREACH fly = sheet.flylist %]
@@ -40,7 +40,7 @@
             </div>
             [% END # FOREACH fly = sheet.flylist %]
 
-            <div id="clear"></div>
+            <!--div id="clear"></div-->
         [% END # FOREACH sheet = sheetlist %]
         </div>
     </div>

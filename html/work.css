@@ -17,12 +17,12 @@ tr {
 td {
 	padding-left: 3px;
 	padding-right: 3px;
+	overflow-x:hidden;
 	white-space: nowrap;
-	overflow-x: hidden;
 	text-overflow: ellipsis;
 }
 
-h1{
+h1 {
 	font-size: 0.650em;
 	font-weight: bold;
 	color: #312b2b;
@@ -44,7 +44,7 @@ h1{
 .ob {
 	/*outline: 1px solid pink;*/
 	margin: 0 auto;
-	max-width: 1600px;
+	/*max-width: 1600px;*/
 	min-width: 320px;
 	width: 100%;
 }
@@ -54,20 +54,29 @@ h1{
 	/*outline: 1px solid red;*/
 	width: 100%;
 	height: 100%;
+
+    display: grid;
+    grid-template-columns: auto auto auto auto auto;
+}
+
+.ob2rp {
+	margin: 0 auto;
+	/*outline: 1px solid red;*/
+	width: 100%;
+	height: 100%;
+
+    display: grid;
+    grid-template-columns: auto auto auto auto;
 }
 
 .wrapper {
-	width: 19%;
 	margin-left: 1%;
-	float: left;
-	/*outline: 1px solid blue;*/
+	margin-right: 1%;
 }
 
 .wrapperrp {
-	width: 24%;
 	margin-left: 1%;
-	float: left;
-	/*outline: 1px solid blue;*/
+	margin-right: 1%;
 }
 
 tr.title {
@@ -97,37 +106,37 @@ td.height {
 }
 
 @media screen and (min-width: 1130px) and (max-width: 1395px) {
-.wrapper {
-	width: 24%;
-	margin-left: 1%;
-	float: left;
-	/*outline: 1px solid blue;*/
-}
+	.ob2 {
+		grid-template-columns: auto auto auto auto;
+	}
+	.ob2rp {
+		grid-template-columns: auto auto auto;
+	}
 }
 
 @media screen and (min-width: 910px) and (max-width: 1130px) {
-.wrapper {
-	width: 31%;
-	margin-left: 0.5%;
-	float: left;
-	/*outline: 1px solid blue;*/
-}
+	.ob2 {
+		grid-template-columns: auto auto auto;
+	}
+	.ob2rp {
+		grid-template-columns: auto auto;
+	}
 }
 
 @media screen and (min-width: 590px) and (max-width: 910px) {
-	.wrapper {
-	width: 49%;
-	margin-left: 0.5%;
-	float: left;
-	/*outline: 1px solid blue;*/
-}
+	.ob2 {
+		grid-template-columns: auto auto;
+	}
+	.ob2rp {
+		grid-template-columns: auto auto;
+	}
 }
 
 @media screen and (min-width: 0px) and (max-width: 590px) {
-	.wrapper {
-	width: 99%;
-	margin-left: 0.3%;
-	float: left;
-	/*outline: 1px solid blue;*/
-}
+	.ob2 {
+		grid-template-columns: auto;
+	}
+	.ob2rp {
+		grid-template-columns: auto;
+	}
 }
